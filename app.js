@@ -639,6 +639,7 @@ function processAPIResponse(data) {
         const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (dbFlagsVal & 1) === 1);
 
         const currentDistance = calcDistance(HOME_LAT, HOME_LON, lat, lon);
+        if (currentDistance > RANGE_NM) return;
 
         // If aircraft is already tracked in local state
         if (activeAircraft[cleanHex]) {
