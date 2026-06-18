@@ -62,7 +62,8 @@ function getAircraftIconType(rawAc) {
     const category = (rawAc.category || '').toUpperCase();
     const typeCode = (rawAc.t || '').toUpperCase();
     const desc = (rawAc.desc || '').toUpperCase();
-    const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (rawAc.dbflags & 1) === 1);
+    const dbFlagsVal = rawAc.dbFlags !== undefined ? rawAc.dbFlags : rawAc.dbflags;
+    const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (dbFlagsVal & 1) === 1);
 
     // 1. Helicopters (Category C1/A7, description contains helicopter manufacturers/keywords, or common helicopter type codes)
     const isHelicopter = (
@@ -579,7 +580,8 @@ function processAPIResponse(data) {
         const seen = Number(rawAc.seen || 0);
         
         // Classify military targets: standard 'mil' flag or Category D/Military type flags
-        const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (rawAc.dbflags & 1) === 1);
+        const dbFlagsVal = rawAc.dbFlags !== undefined ? rawAc.dbFlags : rawAc.dbflags;
+        const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (dbFlagsVal & 1) === 1);
 
         const currentDistance = calcDistance(HOME_LAT, HOME_LON, lat, lon);
 
