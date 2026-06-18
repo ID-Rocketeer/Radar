@@ -65,7 +65,7 @@ function getAircraftIconType(rawAc) {
     const dbFlagsVal = rawAc.dbFlags !== undefined ? rawAc.dbFlags : rawAc.dbflags;
     const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (dbFlagsVal & 1) === 1);
 
-    // 1. Helicopters (Category C1/A7, description contains helicopter manufacturers/keywords, or common helicopter type codes)
+    // 1. Helicopters (Category C1/A7, description contains helicopter manufacturers/keywords, common helicopter names, or helicopter type codes)
     const isHelicopter = (
         category === 'C1' || 
         category === 'A7' || 
@@ -78,11 +78,27 @@ function getAircraftIconType(rawAc) {
         desc.includes('AGUSTA') || 
         desc.includes('HUGHES') || 
         desc.includes('SCHWEIZER') || 
+        desc.includes('CHINOOK') || 
+        desc.includes('BLACK HAWK') || 
+        desc.includes('BLACKHAWK') || 
+        desc.includes('APACHE') || 
+        desc.includes('SEAHAWK') || 
+        desc.includes('HUEY') || 
+        desc.includes('COBRA') || 
+        desc.includes('SEA STALLION') || 
+        desc.includes('SUPER STALLION') || 
+        desc.includes('SEA KNIGHT') || 
+        desc.includes('LITTLE BIRD') || 
+        desc.includes('TILTROTOR') || 
+        desc.includes('OSPREY') || 
+        desc.includes('WESTLAND') || 
+        typeCode.match(/^H\d{2}$/) || 
+        typeCode.match(/^H\d$/) || 
         typeCode.startsWith('EC3') || 
         typeCode.startsWith('EC4') || 
         typeCode.startsWith('EC5') || 
         typeCode.startsWith('AS5') || 
-        ['S76', 'S92', 'A139', 'R44', 'R22', 'R66', 'B06', 'B407', 'B505', 'HU30', 'H500'].includes(typeCode)
+        ['S76', 'S92', 'A139', 'R44', 'R22', 'R66', 'B06', 'B206', 'B212', 'B412', 'B429', 'B430', 'B407', 'B505', 'HU30', 'H500', 'UH1', 'V22', 'AS32', 'AS33', 'AS65', 'EC35', 'EC45', 'NH90', 'EH10', 'MI8', 'MI24'].includes(typeCode)
     );
     if (isHelicopter) {
         return 'helicopter';
