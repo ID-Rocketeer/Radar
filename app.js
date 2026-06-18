@@ -59,7 +59,7 @@ function updateUIConfigurationValues() {
     if (rangeEl) rangeEl.innerText = `${RANGE_NM} NM`;
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+function initializeRadarSystem() {
     initMap();
     initControls();
     updateUIConfigurationValues();
@@ -74,7 +74,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
     pollFlightData();
     setInterval(pollFlightData, API_POLL_INTERVAL_MS);
-});
+}
+
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initializeRadarSystem);
+} else {
+    initializeRadarSystem();
+}
 
 // Update scope dimension and zoom limits on window resize
 window.addEventListener('resize', () => {
