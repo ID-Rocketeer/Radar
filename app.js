@@ -185,7 +185,7 @@ function initMap() {
     // The CSS filter in index.css will transform these dark-grayscale tiles into a bright retro-green screen
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        maxZoom: 12,
+        maxZoom: 20,
         minZoom: 4
     }).addTo(map);
 
@@ -197,7 +197,7 @@ function initMap() {
             radius: distance * 1852,
             color: '#00ff55',
             weight: 1,
-            opacity: 0.12,
+            opacity: 0.35,
             dashArray: '3, 8',
             fill: false,
             interactive: false
