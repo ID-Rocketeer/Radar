@@ -271,6 +271,45 @@ function initControls() {
         });
     });
 
+    // Fullscreen Toggle Button
+    const fullscreenBtn = document.getElementById('fullscreen-toggle');
+    if (fullscreenBtn) {
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                const docEl = document.documentElement;
+                if (docEl.requestFullscreen) {
+                    docEl.requestFullscreen();
+                } else if (docEl.webkitRequestFullscreen) {
+                    docEl.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        });
+    }
+
+    function updateFullscreenUI() {
+        const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        if (fullscreenBtn) {
+            fullscreenBtn.innerHTML = `FULLSCREEN: ${isFullscreen ? 'ON' : 'OFF'}`;
+        }
+        if (map) {
+            setTimeout(() => {
+                map.invalidateSize();
+                updateMinZoom();
+                updateSweepSize();
+                updateDisplayedRange();
+            }, 100);
+        }
+    }
+
+    document.addEventListener('fullscreenchange', updateFullscreenUI);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenUI);
+
     // Filter Buttons Selection
     const filterBtns = document.querySelectorAll('.filter-btn');
     filterBtns.forEach(btn => {
