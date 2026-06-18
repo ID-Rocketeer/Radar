@@ -64,8 +64,26 @@ function getAircraftIconType(rawAc) {
     const desc = (rawAc.desc || '').toUpperCase();
     const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (rawAc.dbflags & 1) === 1);
 
-    // 1. Helicopters (ICAO description code is H1T, H2T, H1P, H2P -> starts with 'H', length 3)
-    if (category === 'C1' || category === 'A7' || (desc.startsWith('H') && desc.length === 3) || desc.includes('HELICOPTER') || desc.includes('ROTOR')) {
+    // 1. Helicopters (Category C1/A7, description contains helicopter manufacturers/keywords, or common helicopter type codes)
+    const isHelicopter = (
+        category === 'C1' || 
+        category === 'A7' || 
+        desc.includes('HELICOPTER') || 
+        desc.includes('ROTOR') || 
+        desc.includes('BELL') || 
+        desc.includes('ROBINSON') || 
+        desc.includes('SIKORSKY') || 
+        desc.includes('EUROCOPTER') || 
+        desc.includes('AGUSTA') || 
+        desc.includes('HUGHES') || 
+        desc.includes('SCHWEIZER') || 
+        typeCode.startsWith('EC3') || 
+        typeCode.startsWith('EC4') || 
+        typeCode.startsWith('EC5') || 
+        typeCode.startsWith('AS5') || 
+        ['S76', 'S92', 'A139', 'R44', 'R22', 'R66', 'B06', 'B407', 'B505', 'HU30', 'H500'].includes(typeCode)
+    );
+    if (isHelicopter) {
         return 'helicopter';
     }
 
