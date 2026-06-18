@@ -25,11 +25,11 @@ if (isNaN(HOME_LAT)) HOME_LAT = defaultLat;
 if (isNaN(HOME_LON)) HOME_LON = defaultLon;
 
 // Validate and cap range. The Airplanes.live API limits point queries to 250 NM.
-// We also set a minimum of 10 NM to prevent division by zero or rendering issues on tiny zoom levels.
+// We also set a minimum of 2 NM to prevent division by zero or rendering issues on tiny zoom levels.
 if (isNaN(RANGE_NM)) {
     RANGE_NM = defaultRange;
 } else {
-    RANGE_NM = Math.max(10, Math.min(RANGE_NM, 250));
+    RANGE_NM = Math.max(2, Math.min(RANGE_NM, 250));
 }
 
 const SWEEP_DURATION_MS = 10000; // 10s rotation cycle
