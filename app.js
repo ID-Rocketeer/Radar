@@ -45,6 +45,44 @@ let trailsEnabled = true;
 let targetListDomMap = {}; // Maps hex -> DOM element for target list reconciliation
 let sweepEl = null; // Global reference to the sweep line DOM element
 
+// SVG silhouettes for different aircraft classifications (optimized for 24x24 viewBox)
+const AIRCRAFT_ICONS = {
+    // Standard commercial airliner/medium-heavy jet
+    jet: 'M21,16V14L13,9V3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z',
+    // Sleek delta-wing military fighter jet
+    fighter: 'M12,2L14.5,10L22,12.5L14.5,14L13.5,19.5L15.5,21.5L12,21L8.5,21.5L10.5,19.5L9.5,14L2,12.5L9.5,10Z',
+    // Light general aviation/propeller airplane (wide straight wings)
+    light: 'M12,2A1,1 0 0,0 11,3V8.5L1,9.5V11.5L11,10.5V19L7.5,21.5V22.5L12,22L16.5,22.5V21.5L13,19V10.5L23,11.5V9.5L13,8.5V3A1,1 0 0,0 12,2Z',
+    // Helicopter top-down view (rotors & tail spinner)
+    helicopter: 'M12,2A1.5,1.5 0 0,0 10.5,3.5V6H3V8H10.5V14.5L5,17V19.5H10.5V22H13.5V19.5H19V17L13.5,14.5V8H21V6H13.5V3.5A1.5,1.5 0 0,0 12,2Z'
+};
+
+// Classifies the aircraft raw data into one of our custom icon categories
+function getAircraftIconType(rawAc) {
+    const category = (rawAc.category || '').toUpperCase();
+    const typeCode = (rawAc.t || '').toUpperCase();
+    const desc = (rawAc.desc || '').toUpperCase();
+    const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (rawAc.dbflags & 1) === 1);
+
+    // 1. Helicopters (Category C1, descriptor match, or common H-type codes)
+    if (category === 'C1' || category === 'A7' || desc.includes('HELICOPTER') || desc.includes('ROTOR') || (typeCode.startsWith('H') && typeCode.length === 3)) {
+        return 'helicopter';
+    }
+
+    // 2. Military Fighters / SLEEK jets (Category A4 = High Performance, military prefix types)
+    if (isMil && (category === 'A4' || typeCode.startsWith('F-') || typeCode.startsWith('FA-') || typeCode.startsWith('A-') || ['F15', 'F16', 'F18', 'F22', 'F35', 'A10', 'T38', 'B1', 'B2', 'B52', 'C17', 'C130', 'KC135'].includes(typeCode))) {
+        return 'fighter';
+    }
+
+    // 3. Light Aircraft / Propeller General Aviation (Category A1 = Light plane, or common piston models)
+    if (category === 'A1' || desc.includes('PISTON') || ['C172', 'C152', 'C182', 'PA28', 'PA44', 'SR22', 'SR20', 'DA40', 'DA42', 'BE36', 'BE58', 'M20', 'RV6', 'RV7', 'RV8', 'RV10'].includes(typeCode)) {
+        return 'light';
+    }
+
+    // Default to commercial jet liner
+    return 'jet';
+}
+
 /* ==========================================================================
    INITIALIZATION
    ========================================================================== */
@@ -560,6 +598,7 @@ function processAPIResponse(data) {
                 dist: currentDistance,
                 category: escapeHtml(rawAc.category || ''),
                 seen: seen,
+                iconType: getAircraftIconType(rawAc),
                 pendingUpdate: null
             };
         }
@@ -732,12 +771,13 @@ function updateMarkerVisibility(hex) {
         
         // Lazy create marker on map only if it is visible
         if (!ac.marker) {
+            const iconPath = AIRCRAFT_ICONS[ac.iconType || 'jet'];
             const markerIcon = L.divIcon({
                 className: `aircraft-marker-container`,
                 html: `
                     <div class="aircraft-marker ${ac.mil ? 'mil' : ''}" id="marker-${safeHex}">
                         <svg class="aircraft-icon" viewBox="0 0 24 24" style="transform: rotate(${ac.track}deg);">
-                            <path d="M21,16V14L13,9V3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z" />
+                            <path d="${iconPath}" />
                         </svg>
                         <div class="aircraft-label">${ac.callsign}</div>
                     </div>
