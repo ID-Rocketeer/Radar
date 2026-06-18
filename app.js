@@ -44,6 +44,7 @@ let activeFilter = 'all'; // 'all', 'mil', 'commercial', 'ga'
 let trailsEnabled = true;
 let targetListDomMap = {}; // Maps hex -> DOM element for target list reconciliation
 let sweepEl = null; // Global reference to the sweep line DOM element
+let sweepActive = true; // Flag to halt/resume sweep line rotation on connection errors
 
 // SVG silhouettes for different aircraft classifications (optimized for 24x24 viewBox)
 const AIRCRAFT_ICONS = {
@@ -457,18 +458,30 @@ function startRadarSweep() {
         const dt = timestamp - lastTime;
         lastTime = timestamp;
 
+        // Check if cached sweep line element is null or has been detached by Leaflet (e.g., on zoom/pan)
+        if (!sweepEl || !document.body.contains(sweepEl)) {
+            sweepEl = document.getElementById('sweep-line');
+            updateSweepSize(); // Recalculate dimensions on recreation
+        }
+
+        if (!sweepActive) {
+            if (sweepEl) {
+                sweepEl.style.display = 'none';
+            }
+            requestAnimationFrame(animate);
+            return;
+        } else {
+            if (sweepEl) {
+                sweepEl.style.display = 'block';
+            }
+        }
+
         // Clamp delta time to sweep duration to prevent giant jumps when tab wakes up
         const clampedDt = Math.min(dt, SWEEP_DURATION_MS);
 
         // Calculate sweep increment based on delta time
         const deltaAngle = (clampedDt / SWEEP_DURATION_MS) * 360;
         const nextAngle = (currentAngle + deltaAngle) % 360;
-
-        // Check if cached sweep line element is null or has been detached by Leaflet (e.g., on zoom/pan)
-        if (!sweepEl || !document.body.contains(sweepEl)) {
-            sweepEl = document.getElementById('sweep-line');
-            updateSweepSize(); // Recalculate dimensions on recreation
-        }
 
         // Update sweep rotation visually
         if (sweepEl) {
@@ -627,6 +640,7 @@ function pollFlightData() {
         })
         .catch(err => {
             console.error("Fetch Error:", err);
+            sweepActive = false; // Shut off sweep line on link error
             // Glitch header effect in case of connection errors
             const titleEl = document.querySelector('.system-status .status-text');
             if (titleEl) {
@@ -637,6 +651,7 @@ function pollFlightData() {
 }
 
 function processAPIResponse(data) {
+    sweepActive = true; // Resume sweep line rotation
     // Reset status elements to Online
     const statusText = document.querySelector('.system-status .status-text');
     const indicator = document.querySelector('.status-indicator');
