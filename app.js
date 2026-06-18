@@ -497,9 +497,9 @@ function checkSweptAircraft(prevAngle, currentAngle) {
     Object.keys(activeAircraft).forEach(hex => {
         const ac = activeAircraft[hex];
         
-        // Check if the plane's precomputed bearing is within the wedge swept in this frame
-        // This runs instantly with zero DOM/Leaflet coordinate conversion overhead
-        const angleDiff = (ac.bearing - prevAngle + 360) % 360;
+        // Use pending update bearing (new position) if available, otherwise current bearing
+        const sweepBearing = ac.pendingUpdate ? ac.pendingUpdate.bearing : ac.bearing;
+        const angleDiff = (sweepBearing - prevAngle + 360) % 360;
 
         if (angleDiff <= sweepDiff) {
             triggerAircraftSweep(hex);
@@ -514,8 +514,40 @@ function triggerAircraftSweep(hex) {
     const ac = activeAircraft[hex];
     if (!ac) return;
 
-    const hasPending = ac.pendingUpdate !== null;
     const safeHex = sanitizeId(hex);
+
+    // If this target is pending removal, delete it when the sweep line passes over its last bearing
+    if (ac.pendingRemoval) {
+        if (ac.marker && map.hasLayer(ac.marker)) {
+            map.removeLayer(ac.marker);
+        }
+        if (ac.trail && map.hasLayer(ac.trail)) {
+            map.removeLayer(ac.trail);
+        }
+        delete activeAircraft[hex];
+        
+        if (selectedHex === hex) {
+            selectedHex = null;
+            resetTelemetryDisplay();
+        }
+        
+        // Remove from target list and DOM
+        const rowEl = document.getElementById(`row-${safeHex}`);
+        if (rowEl && rowEl.parentNode) {
+            rowEl.parentNode.removeChild(rowEl);
+        }
+        delete targetListDomMap[hex];
+        
+        // Update target count in header
+        const targetCountEl = document.getElementById('target-count');
+        if (targetCountEl) {
+            const count = Object.values(activeAircraft).filter(a => !a.pendingRemoval).length;
+            targetCountEl.innerText = count;
+        }
+        return;
+    }
+
+    const hasPending = ac.pendingUpdate !== null;
 
     // If new data arrived, apply the update precisely at the moment of the sweep pass
     if (hasPending) {
@@ -526,8 +558,8 @@ function triggerAircraftSweep(hex) {
         ac.speed = update.speed;
         ac.track = update.track;
         ac.seen = update.seen;
-        ac.dist = calcDistance(HOME_LAT, HOME_LON, ac.lat, ac.lon);
-        ac.bearing = calcBearing(ac.lat, ac.lon);
+        ac.dist = update.dist;
+        ac.bearing = update.bearing;
 
         // Move marker if it is currently rendered (active on map)
         if (ac.marker) {
@@ -644,6 +676,7 @@ function processAPIResponse(data) {
         // If aircraft is already tracked in local state
         if (activeAircraft[cleanHex]) {
             const ac = activeAircraft[cleanHex];
+            ac.pendingRemoval = false; // Reset removal flag if it is back in range/broadcast
             
             // Recalculate icon type if we get new info that was missing initially
             let infoChanged = false;
@@ -674,7 +707,9 @@ function processAPIResponse(data) {
                 alt: alt,
                 speed: speed,
                 track: track,
-                seen: seen
+                seen: seen,
+                bearing: calcBearing(lat, lon), // Precompute the new bearing!
+                dist: currentDistance
             };
             ac.seen = seen;
         } else {
@@ -699,7 +734,8 @@ function processAPIResponse(data) {
                 category: escapeHtml(rawAc.category || ''),
                 seen: seen,
                 iconType: getAircraftIconType(rawAc),
-                pendingUpdate: null
+                pendingUpdate: null,
+                pendingRemoval: false
             };
         }
 
@@ -707,23 +743,11 @@ function processAPIResponse(data) {
         updateMarkerVisibility(cleanHex);
     });
 
-    // Remove aircraft that are no longer being broadcasted by the API (seen threshold > 60s)
+    // Flag aircraft that are no longer in range or not broadcasted by the API for removal
     Object.keys(activeAircraft).forEach(hex => {
         const ac = activeAircraft[hex];
-        // If not in the fresh batch, or if it hasn't been seen in a while
         if (!freshHexes.has(hex) || ac.seen > 60) {
-            if (ac.marker && map.hasLayer(ac.marker)) {
-                map.removeLayer(ac.marker);
-            }
-            if (ac.trail && map.hasLayer(ac.trail)) {
-                map.removeLayer(ac.trail);
-            }
-            delete activeAircraft[hex];
-            
-            if (selectedHex === hex) {
-                selectedHex = null;
-                resetTelemetryDisplay();
-            }
+            ac.pendingRemoval = true;
         }
     });
 
@@ -756,6 +780,7 @@ function updateTargetList() {
     
     // Filter and sort active aircraft list
     const filteredAc = Object.values(activeAircraft).filter(ac => {
+        if (ac.pendingRemoval) return false; // Hide departing targets immediately from list
         if (activeFilter === 'mil') return ac.mil;
         if (activeFilter === 'commercial') {
             // Heuristic for commercial flights: Not military, cruising at higher altitudes
