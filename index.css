@@ -1,0 +1,842 @@
+/* ==========================================================================
+   DESIGN SYSTEM & VARIABLES
+   ========================================================================== */
+:root {
+    --phosphor-green: #00ff55;
+    --phosphor-green-bright: #33ff77;
+    --phosphor-glow: rgba(0, 255, 85, 0.45);
+    --phosphor-glow-heavy: rgba(0, 255, 85, 0.85);
+    --phosphor-dim: #004411;
+    --phosphor-dim-text: rgba(0, 255, 85, 0.65);
+    --phosphor-bg: #010602;
+    --panel-bg: rgba(2, 18, 5, 0.75);
+    --panel-border: rgba(0, 255, 85, 0.25);
+    --panel-border-active: rgba(0, 255, 85, 0.6);
+    --font-radar: 'Roboto Mono', monospace;
+    --crt-flicker-speed: 0.15s;
+}
+
+/* ==========================================================================
+   GLOBAL RESET & STYLES
+   ========================================================================== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-radar);
+    user-select: none;
+}
+
+body {
+    background-color: var(--phosphor-bg);
+    color: var(--phosphor-green);
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    position: relative;
+    text-shadow: 0 0 4px var(--phosphor-glow);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 10, 2, 0.5);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--phosphor-dim);
+    border: 1px solid var(--panel-border);
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--phosphor-green);
+}
+
+
+
+/* ==========================================================================
+   LAYOUT STRUCTURE
+   ========================================================================== */
+.radar-container {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    position: relative;
+    z-index: 10;
+}
+
+/* ==========================================================================
+   SIDEBAR COMMAND PANEL
+   ========================================================================== */
+/* Left Sidebar Chassis Panel */
+.radar-sidebar {
+    width: 380px;
+    height: 100%;
+    border-right: 1px solid rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    gap: 15px;
+    z-index: 20;
+    box-shadow: 1px 0 0 rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+    
+    /* Brushed metal texture matching the scope bezel */
+    background: 
+        /* Specular light reflection sheen */
+        linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.08) 0%,
+            rgba(255, 255, 255, 0.0) 35%,
+            rgba(0, 0, 0, 0.45) 50%,
+            rgba(255, 255, 255, 0.08) 70%,
+            rgba(0, 0, 0, 0.55) 100%
+        ),
+        /* Repeating micro-brush streaks */
+        repeating-linear-gradient(
+            90deg,
+            #1e2320 0px,
+            #1e2320 1px,
+            #272d29 2px,
+            #212623 3px,
+            #1e2320 4px
+        );
+    background-attachment: fixed;
+}
+
+.sidebar-glass-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: rgba(1, 10, 2, 0.85); /* Dark green glass plate background */
+    border: 1px solid rgba(0, 255, 85, 0.18);
+    border-bottom-color: rgba(0, 255, 85, 0.08);
+    border-right-color: rgba(0, 255, 85, 0.08);
+    border-radius: 4px;
+    padding: 15px;
+    box-shadow: 
+        0 1px 0 rgba(255, 255, 255, 0.04) inset, /* Top edge specular highlight */
+        0 2px 8px rgba(0, 0, 0, 0.7) inset; /* Inset depth shadow */
+    overflow: hidden; /* Constrain the panel, scrolling happens inside target-list */
+}
+
+.sidebar-header {
+    border-bottom: 1px solid rgba(0, 255, 85, 0.15);
+    padding-bottom: 15px;
+    margin-bottom: 0;
+}
+
+/* Glitch Title Effect */
+.glitch-title {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--phosphor-green);
+    text-shadow: 0 0 4px var(--phosphor-glow);
+    position: relative;
+    letter-spacing: 2px;
+}
+
+.system-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 5px;
+    font-size: 0.85rem;
+    color: var(--phosphor-green);
+    text-shadow: 0 0 4px var(--phosphor-glow);
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--phosphor-dim);
+    box-shadow: 0 0 2px var(--phosphor-glow);
+}
+
+.status-indicator.active {
+    background-color: var(--phosphor-green);
+    box-shadow: 0 0 8px var(--phosphor-green);
+    animation: pulse-indicator 2s infinite;
+}
+
+@keyframes pulse-indicator {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; box-shadow: 0 0 12px var(--phosphor-green); }
+    100% { opacity: 0.5; }
+}
+
+/* Panel Sections */
+/* Inset Subpanels (simulate inset dark glass windows) */
+.sidebar-panel {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 15px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0; /* Keep Configuration, Filters, and Telemetry visible at original size */
+}
+
+.sidebar-panel:not(:last-child) {
+    border-bottom: 1px solid rgba(0, 255, 85, 0.15);
+}
+
+.panel-title {
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--panel-border);
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+    color: var(--phosphor-green-bright);
+}
+
+/* Config Grid */
+.control-grid {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    row-gap: 4px;
+    font-size: 0.9rem;
+}
+
+.control-label {
+    color: var(--phosphor-dim-text);
+}
+
+.control-value {
+    color: var(--phosphor-green);
+    font-weight: bold;
+}
+
+.panel-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+}
+
+/* Buttons Styling */
+.retro-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--phosphor-green);
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 2px;
+}
+
+.retro-btn:hover {
+    background: rgba(0, 255, 85, 0.1);
+    border-color: var(--panel-border-active);
+    box-shadow: 0 0 6px var(--phosphor-glow);
+}
+
+.retro-btn:active {
+    background: rgba(0, 255, 85, 0.25);
+}
+
+/* Filter buttons */
+.filter-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.filter-btn {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--phosphor-dim-text);
+    padding: 5px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s ease;
+}
+
+.filter-btn.active {
+    color: var(--phosphor-green);
+    border-color: var(--phosphor-green);
+    background: rgba(0, 255, 85, 0.08);
+    box-shadow: 0 0 4px var(--phosphor-glow);
+}
+
+.filter-btn:hover:not(.active) {
+    color: var(--phosphor-green-bright);
+    border-color: var(--panel-border-active);
+}
+
+/* Target List Scroll Container */
+.target-list-panel {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Prevent target list container from expanding the glass panel */
+}
+
+.list-headers {
+    display: grid;
+    grid-template-columns: 80px 70px 60px 1fr;
+    font-size: 0.75rem;
+    color: var(--phosphor-dim-text);
+    padding: 0 5px 3px 5px;
+    border-bottom: 1px dashed var(--panel-border);
+}
+
+.target-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    margin-top: 4px;
+}
+
+.empty-list-message, .empty-telemetry {
+    font-size: 0.8rem;
+    color: var(--phosphor-dim-text);
+    text-align: center;
+    padding: 20px 10px;
+    line-height: 1.4;
+}
+
+.target-item {
+    display: grid;
+    grid-template-columns: 80px 70px 60px 1fr;
+    font-size: 0.85rem;
+    padding: 6px 5px;
+    border-bottom: 1px solid rgba(0, 255, 85, 0.05);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.target-item:hover {
+    background: rgba(0, 255, 85, 0.06);
+    color: var(--phosphor-green-bright);
+}
+
+.target-item.selected {
+    background: rgba(0, 255, 85, 0.15);
+    border-left: 3px solid var(--phosphor-green);
+    color: var(--phosphor-green-bright);
+    box-shadow: 0 0 5px rgba(0, 255, 85, 0.1) inset;
+}
+
+.target-item.mil {
+    color: #ffaa00; /* Military Amber Alert */
+}
+.target-item.mil:hover {
+    color: #ffcc55;
+}
+.target-item.mil.selected {
+    border-left-color: #ffaa00;
+    background: rgba(255, 170, 0, 0.15);
+}
+
+.target-item .lbl-callsign {
+    font-weight: bold;
+}
+
+/* Telemetry display logs */
+.telemetry-display {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    background: rgba(0, 5, 1, 0.6);
+    border: 1px solid rgba(0, 255, 85, 0.1);
+    border-radius: 2px;
+    padding: 8px;
+    min-height: 100px;
+    overflow-y: auto;
+}
+
+.tel-row {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed rgba(0, 255, 85, 0.08);
+    padding: 2px 0;
+}
+
+.tel-label {
+    color: var(--phosphor-dim-text);
+}
+
+.tel-val {
+    font-weight: bold;
+    color: var(--phosphor-green);
+}
+
+.tel-val.alert {
+    color: #ffaa00;
+    animation: text-pulse 1.5s infinite;
+}
+
+@keyframes text-pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+/* ==========================================================================
+   RADAR VIEWPORT & MAP
+   ========================================================================== */
+.radar-viewport {
+    flex-grow: 1;
+    height: 100%;
+    position: relative;
+    background-color: var(--phosphor-bg);
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+    background: #020b02 !important;
+}
+
+/* Apply monochrome green filter ONLY to map background tiles, 
+   leaving markers, trails, and labels perfectly crisp and unrasterized */
+.leaflet-tile-pane {
+    filter: brightness(1.6) contrast(1.2) sepia(100%) hue-rotate(85deg) saturate(6);
+    opacity: 0.45; /* Soft, visible blend that doesn't compete with active flight markers */
+}
+
+/* Adjust map overlay elements back to original if needed, but in our case, 
+   we want EVERYTHING on the map (tiles, aircraft, trails) to inherit the green CRT filter! */
+
+/* Custom styled scale control */
+.leaflet-control-scale-line {
+    background: rgba(1, 10, 2, 0.85) !important;
+    border: 1px solid var(--phosphor-green) !important;
+    border-top: none !important;
+    color: var(--phosphor-green) !important;
+    font-family: var(--font-radar) !important;
+    font-size: 0.8rem !important;
+    text-shadow: 0 0 2px var(--phosphor-glow) !important;
+}
+
+.leaflet-control-attribution {
+    background: rgba(1, 10, 2, 0.8) !important;
+    color: var(--phosphor-dim) !important;
+    font-family: var(--font-radar) !important;
+    font-size: 0.65rem !important;
+}
+
+/* ==========================================================================
+   RADAR VECTOR & MAP GRAPHICS
+   ========================================================================== */
+
+/* The Radar Sweep Wedge */
+.radar-sweep-line {
+    width: 2400px;
+    height: 2400px;
+    margin-left: -1200px;
+    margin-top: -1200px;
+    position: absolute;
+    pointer-events: none;
+    transform-origin: 50% 50%;
+    z-index: 1000; /* Float above map tiles but below markers */
+    border-radius: 50%;
+    /* Clockwise sweep with trailing wedge */
+    background: conic-gradient(
+        from 0deg, 
+        transparent 270deg, 
+        rgba(0, 255, 85, 0.03) 270deg, 
+        rgba(0, 255, 85, 0.35) 360deg
+    );
+    /* Force GPU acceleration to prevent CPU paint thrashing on rotation */
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+/* Glowing Sweep Leading Edge Line */
+.radar-sweep-line::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 50%;
+    background: var(--phosphor-green-bright);
+    box-shadow: 0 0 8px var(--phosphor-green), 0 0 15px var(--phosphor-green);
+    transform-origin: bottom center;
+}
+
+/* Home Radar Crosshair Target */
+.radar-home-marker {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+.radar-home-crosshair {
+    width: 30px;
+    height: 30px;
+    position: relative;
+}
+
+.radar-home-crosshair::before,
+.radar-home-crosshair::after {
+    content: '';
+    position: absolute;
+    background-color: var(--phosphor-green);
+    box-shadow: 0 0 4px var(--phosphor-glow);
+}
+
+/* Vertical crosshair line */
+.radar-home-crosshair::before {
+    width: 2px;
+    height: 100%;
+    left: 50%;
+    margin-left: -1px;
+}
+
+/* Horizontal crosshair line */
+.radar-home-crosshair::after {
+    height: 2px;
+    width: 100%;
+    top: 50%;
+    margin-top: -1px;
+}
+
+/* Center dot & ring */
+.radar-home-dot {
+    width: 6px;
+    height: 6px;
+    background-color: var(--phosphor-green);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 8px var(--phosphor-green);
+}
+
+.radar-home-ring {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--phosphor-green);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: radar-origin-pulse 3s infinite linear;
+}
+
+@keyframes radar-origin-pulse {
+    0% { width: 10px; height: 10px; opacity: 1; }
+    100% { width: 32px; height: 32px; opacity: 0; }
+}
+
+/* Range rings surrounding the origin */
+.radar-range-ring {
+    border: 1px dashed rgba(0, 255, 85, 0.12);
+    border-radius: 50%;
+    position: absolute;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    z-index: 999;
+}
+
+/* ==========================================================================
+   AIRCRAFT MARKERS (MAP)
+   ========================================================================== */
+.aircraft-marker-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.aircraft-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    /* Unswept / dim state */
+    opacity: 0.35;
+    transition: opacity 3s ease-out 5s; /* Stay fully bright for 5s, then fade to dim over 3s */
+}
+
+/* The glowing plane icon */
+.aircraft-icon {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.2s ease;
+}
+
+.aircraft-icon path {
+    fill: var(--phosphor-green);
+}
+
+/* Display labels below plane */
+.aircraft-label {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #00ff55;
+    margin-top: 2px;
+    white-space: nowrap;
+    background-color: #010a02;
+    border: 1px solid rgba(0, 255, 85, 0.45);
+    padding: 1px 4px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+    opacity: 0;
+    transition: opacity 2s ease-out 6s; /* Stay fully readable for 6s, then fade to invisible over 2s */
+}
+
+/* Swept Excitation Flash State (Phosphor hit) */
+.aircraft-marker.swept-flash {
+    opacity: 1;
+    /* Resets transition speed for immediate excitation */
+    transition: none;
+}
+
+.aircraft-marker.swept-flash .aircraft-label {
+    opacity: 1;
+    transition: none;
+}
+
+/* Apply glowing drop shadow ONLY to the SVG, protecting text from rasterization */
+.aircraft-marker.swept-flash .aircraft-icon {
+    filter: drop-shadow(0 0 4px var(--phosphor-green));
+}
+
+/* Selected aircraft style (adds persistent bracket/ring) */
+.aircraft-marker.selected::before {
+    content: '';
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--phosphor-green);
+    border-radius: 2px;
+    top: -4px;
+    animation: target-lock-rotate 10s infinite linear;
+}
+
+@keyframes target-lock-rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Special styling for military targets */
+.aircraft-marker.mil .aircraft-icon path {
+    fill: #ffaa00; /* Vintage Radar Amber for military */
+}
+.aircraft-marker.mil.swept-flash .aircraft-icon {
+    filter: drop-shadow(0 0 4px #ffaa00);
+}
+.aircraft-marker.mil.selected::before {
+    border-color: #ffaa00;
+}
+
+/* breadcrumb tracking trail */
+.radar-trail {
+    stroke: var(--phosphor-green);
+    stroke-width: 1.5px;
+    stroke-dasharray: 2 4;
+    opacity: 0.35;
+}
+.radar-trail.mil {
+    stroke: #ffaa00;
+}
+
+/* ==========================================================================
+   BRUSHED ALUMINUM BEZEL PANEL & 3D CRT SCOPE RIMS
+   ========================================================================== */
+.radar-bezel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let map clicks pass through */
+    z-index: 2000; /* Float above markers and map overlays */
+    
+    /* High-end brushed metal texture styling */
+    background: 
+        /* Specular light reflection sheen */
+        linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.08) 0%,
+            rgba(255, 255, 255, 0.0) 35%,
+            rgba(0, 0, 0, 0.45) 50%,
+            rgba(255, 255, 255, 0.08) 70%,
+            rgba(0, 0, 0, 0.55) 100%
+        ),
+        /* Repeating micro-brush streaks */
+        repeating-linear-gradient(
+            90deg,
+            #1e2320 0px,
+            #1e2320 1px,
+            #272d29 2px,
+            #212623 3px,
+            #1e2320 4px
+        );
+    background-attachment: fixed;
+        
+    /* Circular mask cutout: center is transparent, corners are solid brushed aluminum */
+    -webkit-mask-image: radial-gradient(
+        circle at center,
+        transparent calc(min(96dvh, calc(0.96 * (100vw - 380px))) * 0.475),
+        black calc(min(96dvh, calc(0.96 * (100vw - 380px))) * 0.476)
+    );
+    mask-image: radial-gradient(
+        circle at center,
+        transparent calc(min(96dvh, calc(0.96 * (100vw - 380px))) * 0.475),
+        black calc(min(96dvh, calc(0.96 * (100vw - 380px))) * 0.476)
+    );
+}
+
+/* Base style for centered scope overlay components */
+.radar-scope-rim, 
+.radar-glass-edge, 
+.radar-glass-glare {
+    width: min(96dvh, calc(0.96 * (100vw - 380px)));
+    height: min(96dvh, calc(0.96 * (100vw - 380px)));
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    box-sizing: border-box;
+}
+
+/* 3D Extruded Scope Bezel Rim */
+.radar-scope-rim {
+    z-index: 2010;
+    /* Multilayered shadows and borders to simulate a heavy, rounded plastic/metallic rim */
+    border: 14px solid #141a16; /* Base heavy plastic rim */
+    box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.8), /* Depth shadow onto the brushed aluminum panel */
+        0 0 0 1px rgba(255, 255, 255, 0.08), /* Subtle rim outer highlights */
+        0 4px 12px rgba(0, 0, 0, 0.95) inset, /* Deep inner bezel depth shadow */
+        0 -2px 6px rgba(255, 255, 255, 0.15) inset, /* Specular edge lighting inside rim */
+        0 2px 4px rgba(255, 255, 255, 0.08); /* Outer bezel bevel light catcher */
+    
+    /* Simulate overhead specular reflections */
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 50%, rgba(0, 0, 0, 0.45) 100%);
+    border: 3px solid #202b23; /* Inner circular detail ridge */
+}
+
+/* Dimensional CRT Glass Refraction Edge */
+.radar-glass-edge {
+    z-index: 2012;
+    border: 6px solid transparent;
+    /* Replicates the physical refraction of thick cathode-ray tube glass */
+    box-shadow: 
+        0 0 0 4px rgba(0, 10, 2, 0.95) inset, /* Dark border at the edge of the glass */
+        0 0 12px 2px rgba(0, 255, 85, 0.22) inset, /* Bright phosphor dispersion edge glow */
+        0 0 35px 15px rgba(0, 5, 1, 0.85) inset; /* Soft inner tube shadow */
+}
+
+/* CRT Glossy Reflection Glare */
+.radar-glass-glare {
+    z-index: 2014;
+    overflow: hidden;
+}
+
+.radar-glass-glare::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    /* Diagonal white glossy light streak representing window glare */
+    background: linear-gradient(
+        35deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(255, 255, 255, 0.02) 45%,
+        rgba(255, 255, 255, 0) 48%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    transform: rotate(-15deg);
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVENESS & PORTRAIT TOUCH LAYOUT
+   ========================================================================== */
+@media (max-width: 768px) {
+    .radar-container {
+        flex-direction: column;
+        overflow-y: auto;
+        height: 100vh;
+        height: 100dvh;
+    }
+    
+    .radar-sidebar {
+        width: 100%;
+        height: auto;
+        flex-shrink: 0;
+        border-right: none;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+        padding: 12px;
+        gap: 12px;
+    }
+    
+    .sidebar-glass-panel {
+        height: auto !important;
+        overflow: visible !important;
+    }
+    
+    .target-list-panel {
+        height: auto !important;
+        overflow: visible !important;
+    }
+    
+    .target-list {
+        height: auto !important;
+        overflow: visible !important;
+    }
+    
+    .radar-viewport {
+        width: 100%;
+        height: 60vh;
+        height: 60dvh;
+        flex-shrink: 0;
+        position: relative;
+    }
+    
+    /* Center scope overlay components for mobile */
+    .radar-scope-rim, 
+    .radar-glass-edge, 
+    .radar-glass-glare {
+        width: min(56dvh, 94vw);
+        height: min(56dvh, 94vw);
+    }
+    
+    /* Bezel mask cutout for mobile */
+    .radar-bezel {
+        -webkit-mask-image: radial-gradient(
+            circle at center,
+            transparent calc(min(56dvh, 94vw) * 0.475),
+            black calc(min(56dvh, 94vw) * 0.476)
+        );
+        mask-image: radial-gradient(
+            circle at center,
+            transparent calc(min(56dvh, 94vw) * 0.475),
+            black calc(min(56dvh, 94vw) * 0.476)
+        );
+    }
+}
+
+/* Height-constrained desktop viewports (e.g. tablet landscape, smaller laptops) */
+@media (max-height: 850px) and (min-width: 769px) {
+    .sidebar-glass-panel {
+        overflow-y: auto;
+    }
+    
+    .target-list-panel {
+        max-height: 200px;
+        flex-shrink: 0; /* Prevent the flex container from squishing it below its cap */
+    }
+}
