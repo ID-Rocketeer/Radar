@@ -54,7 +54,7 @@ const AIRCRAFT_ICONS = {
     // Light general aviation/propeller airplane (wide straight wings)
     light: 'M12,2A1,1 0 0,0 11,3V8.5L1,9.5V11.5L11,10.5V19L7.5,21.5V22.5L12,22L16.5,22.5V21.5L13,19V10.5L23,11.5V9.5L13,8.5V3A1,1 0 0,0 12,2Z',
     // Helicopter top-down view (rotors & tail spinner)
-    helicopter: 'M12,2A1.5,1.5 0 0,0 10.5,3.5V6H3V8H10.5V14.5L5,17V19.5H10.5V22H13.5V19.5H19V17L13.5,14.5V8H21V6H13.5V3.5A1.5,1.5 0 0,0 12,2Z'
+    helicopter: 'M12,6C13.7,6 14.8,7.5 14.8,10C14.8,12 13.5,14 12.8,16H11.2C10.5,14 9.2,12 9.2,10C9.2,7.5 10.3,6 12,6ZM2.7,3.3L20.7,21.3L21.3,20.7L3.3,2.7ZM20.7,2.7L2.7,20.7L3.3,21.3L21.3,3.3ZM12,9.8A1.2,1.2 0 1,1 12,12.2A1.2,1.2 0 1,1 12,9.8ZM6.6,9H7.4V15.5H6.6ZM7.4,9.6H9.2V10.4H7.4ZM7.4,13.6H9.5V14.4H7.4ZM16.6,9H17.4V15.5H16.6ZM14.8,9.6H16.6V10.4H14.8ZM14.5,13.6H16.6V14.4H14.5ZM11.6,16H12.4V22H11.6ZM9,19.7H15V20.3H9ZM9.7,19H10.3V23H9.7ZM10.3,21.2H11.6V21.8H10.3'
 };
 
 // Classifies the aircraft raw data into one of our custom icon categories
@@ -589,7 +589,7 @@ function processAPIResponse(data) {
             
             // Recalculate icon type if we get new info that was missing initially
             let infoChanged = false;
-            if (rawAc.t && !ac.type) { ac.type = escapeHtml(rawAc.t); infoChanged = true; }
+            if (rawAc.t && (!ac.type || ac.type === 'UNKN')) { ac.type = escapeHtml(rawAc.t); infoChanged = true; }
             if (rawAc.desc && (!ac.desc || ac.desc === 'AIRCRAFT')) { ac.desc = escapeHtml(rawAc.desc); infoChanged = true; }
             if (rawAc.category && !ac.category) { ac.category = escapeHtml(rawAc.category); infoChanged = true; }
             if (rawAc.r && (!ac.reg || ac.reg === 'UNKNOWN')) { ac.reg = escapeHtml(rawAc.r); infoChanged = true; }
