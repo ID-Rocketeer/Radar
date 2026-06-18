@@ -585,8 +585,32 @@ function processAPIResponse(data) {
 
         // If aircraft is already tracked in local state
         if (activeAircraft[cleanHex]) {
+            const ac = activeAircraft[cleanHex];
+            
+            // Recalculate icon type if we get new info that was missing initially
+            let infoChanged = false;
+            if (rawAc.t && !ac.type) { ac.type = escapeHtml(rawAc.t); infoChanged = true; }
+            if (rawAc.desc && (!ac.desc || ac.desc === 'AIRCRAFT')) { ac.desc = escapeHtml(rawAc.desc); infoChanged = true; }
+            if (rawAc.category && !ac.category) { ac.category = escapeHtml(rawAc.category); infoChanged = true; }
+            if (rawAc.r && (!ac.reg || ac.reg === 'UNKNOWN')) { ac.reg = escapeHtml(rawAc.r); infoChanged = true; }
+            if (rawAc.squawk && (!ac.squawk || ac.squawk === '0000')) { ac.squawk = escapeHtml(rawAc.squawk); infoChanged = true; }
+
+            if (infoChanged) {
+                const newIconType = getAircraftIconType(rawAc);
+                if (newIconType !== ac.iconType) {
+                    ac.iconType = newIconType;
+                    // Dynamically update the SVG path in the Leaflet marker if it is currently rendered
+                    const safeHex = sanitizeId(cleanHex);
+                    const markerDom = document.getElementById(`marker-${safeHex}`);
+                    const pathEl = markerDom ? markerDom.querySelector('.aircraft-icon path') : null;
+                    if (pathEl) {
+                        pathEl.setAttribute('d', AIRCRAFT_ICONS[newIconType || 'jet']);
+                    }
+                }
+            }
+
             // Buffer the coordinates: do not move the plane until the sweep line passes
-            activeAircraft[cleanHex].pendingUpdate = {
+            ac.pendingUpdate = {
                 lat: lat,
                 lon: lon,
                 alt: alt,
@@ -594,7 +618,7 @@ function processAPIResponse(data) {
                 track: track,
                 seen: seen
             };
-            activeAircraft[cleanHex].seen = seen;
+            ac.seen = seen;
         } else {
             // Store in tracking registry (markers/trails created lazily in updateMarkerVisibility)
             activeAircraft[cleanHex] = {
@@ -949,7 +973,7 @@ function renderTelemetryDetails(hex) {
         </div>
         <div class="tel-row">
             <span class="tel-label">CLASSIFICATION:</span>
-            <span class="tel-val ${ac.mil ? 'alert' : ''}">${ac.mil ? 'MILITARY SECURE' : 'CIVILIAN AIR TRAFFIC'}</span>
+            <span class="tel-val ${ac.mil ? 'alert' : ''}">${ac.mil ? 'MILITARY SECURE' : 'CIVILIAN AIR TRAFFIC'} (${(ac.iconType || 'jet').toUpperCase()})</span>
         </div>
     `;
 }
