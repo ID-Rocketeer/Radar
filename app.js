@@ -64,8 +64,8 @@ function getAircraftIconType(rawAc) {
     const desc = (rawAc.desc || '').toUpperCase();
     const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (rawAc.dbflags & 1) === 1);
 
-    // 1. Helicopters (Category C1, descriptor match, or common H-type codes)
-    if (category === 'C1' || category === 'A7' || desc.includes('HELICOPTER') || desc.includes('ROTOR') || (typeCode.startsWith('H') && typeCode.length === 3)) {
+    // 1. Helicopters (ICAO description code is H1T, H2T, H1P, H2P -> starts with 'H', length 3)
+    if (category === 'C1' || category === 'A7' || (desc.startsWith('H') && desc.length === 3) || desc.includes('HELICOPTER') || desc.includes('ROTOR')) {
         return 'helicopter';
     }
 
@@ -74,8 +74,8 @@ function getAircraftIconType(rawAc) {
         return 'fighter';
     }
 
-    // 3. Light Aircraft / Propeller General Aviation (Category A1 = Light plane, or common piston models)
-    if (category === 'A1' || desc.includes('PISTON') || ['C172', 'C152', 'C182', 'PA28', 'PA44', 'SR22', 'SR20', 'DA40', 'DA42', 'BE36', 'BE58', 'M20', 'RV6', 'RV7', 'RV8', 'RV10'].includes(typeCode)) {
+    // 3. Light Aircraft / Propeller General Aviation (ICAO description ends with 'P' for piston-engines, e.g. L1P)
+    if (category === 'A1' || desc.endsWith('P') || desc.includes('PISTON') || ['C172', 'C152', 'C182', 'PA28', 'PA44', 'SR22', 'SR20', 'DA40', 'DA42', 'BE36', 'BE58', 'M20', 'RV6', 'RV7', 'RV8', 'RV10'].includes(typeCode)) {
         return 'light';
     }
 
