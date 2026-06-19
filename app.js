@@ -177,11 +177,29 @@ function stopPolling() {
     }
 }
 
+function initParallaxGlare() {
+    const glareReflection = document.getElementById('glass-glare-reflection');
+    if (!glareReflection) return;
+
+    window.addEventListener('mousemove', (e) => {
+        // Calculate mouse position relative to center of window (-0.5 to 0.5)
+        const x = (e.clientX / window.innerWidth) - 0.5;
+        const y = (e.clientY / window.innerHeight) - 0.5;
+
+        // Subtle shifting (max 15px translation in either direction)
+        const moveX = x * 30;
+        const moveY = y * 30;
+
+        glareReflection.style.transform = `translate(${moveX}px, ${moveY}px) rotate(-15deg) scale(1.2)`;
+    });
+}
+
 function initializeRadarSystem() {
     initMap();
     initControls();
     updateUIConfigurationValues();
     startRadarSweep();
+    initParallaxGlare();
     
     // Initial size and minimum zoom calculation
     setTimeout(() => {
@@ -283,21 +301,6 @@ function initMap() {
     });
     L.marker([HOME_LAT, HOME_LON], { icon: homeIcon, interactive: false }).addTo(map);
 
-    // Initialize custom control buttons in bottom-left corner of the map viewport
-    const customZoom = L.control({ position: 'bottomright' });
-    customZoom.onAdd = function() {
-        const div = L.DomUtil.create('div', 'leaflet-bar');
-        div.style.border = '1px solid var(--panel-border)';
-        div.style.background = 'rgba(1, 10, 2, 0.85)';
-        div.style.display = 'flex';
-        div.style.flexDirection = 'column';
-        div.innerHTML = `
-            <button class="retro-btn" id="zoom-in" style="width: 32px; height: 32px; margin: 0; font-size: 1rem; border:none; border-bottom:1px solid var(--panel-border)">+</button>
-            <button class="retro-btn" id="zoom-out" style="width: 32px; height: 32px; margin: 0; font-size: 1rem; border:none">-</button>
-        `;
-        return div;
-    };
-    customZoom.addTo(map);
 
     document.getElementById('zoom-in').addEventListener('click', () => map.zoomIn());
     document.getElementById('zoom-out').addEventListener('click', () => map.zoomOut());

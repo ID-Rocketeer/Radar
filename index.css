@@ -13,6 +13,7 @@
     --panel-border: rgba(0, 255, 85, 0.25);
     --panel-border-active: rgba(0, 255, 85, 0.6);
     --font-radar: 'Roboto Mono', monospace;
+    --font-body: 'Roboto', sans-serif;
     --crt-flicker-speed: 0.15s;
 }
 
@@ -23,8 +24,11 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: var(--font-radar);
     user-select: none;
+}
+
+body, button, input, select, textarea {
+    font-family: var(--font-radar);
 }
 
 body {
@@ -39,8 +43,8 @@ body {
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
 }
 ::-webkit-scrollbar-track {
     background: rgba(0, 10, 2, 0.5);
@@ -48,9 +52,12 @@ body {
 ::-webkit-scrollbar-thumb {
     background: var(--phosphor-dim);
     border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
 }
 ::-webkit-scrollbar-thumb:hover {
     background: var(--phosphor-green);
+    box-shadow: 0 0 6px var(--phosphor-glow);
 }
 
 
@@ -136,7 +143,6 @@ body {
     color: var(--phosphor-green);
     text-shadow: 0 0 4px var(--phosphor-glow);
     position: relative;
-    letter-spacing: 2px;
 }
 
 .system-status {
@@ -189,7 +195,6 @@ body {
 
 .panel-title {
     font-size: 0.9rem;
-    letter-spacing: 1px;
     border-bottom: 1px solid var(--panel-border);
     padding-bottom: 4px;
     margin-bottom: 4px;
@@ -759,26 +764,28 @@ body {
 
 /* CRT Glossy Reflection Glare */
 .radar-glass-glare {
-    z-index: 2014;
+    z-index: 2005;
     overflow: hidden;
 }
 
-.radar-glass-glare::after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    /* Diagonal white glossy light streak representing window glare */
+.radar-glass-glare-reflection {
+    width: 100%;
+    height: 100%;
+    /* A toned-down soft diagonal light streak running directly through the center of the visible scope */
     background: linear-gradient(
-        35deg,
-        rgba(255, 255, 255, 0.04) 0%,
-        rgba(255, 255, 255, 0.02) 45%,
-        rgba(255, 255, 255, 0) 48%,
+        135deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0) 30%,
+        rgba(255, 255, 255, 0.03) 45%,
+        rgba(255, 255, 255, 0.07) 50%,
+        rgba(255, 255, 255, 0.03) 55%,
+        rgba(255, 255, 255, 0) 70%,
         rgba(255, 255, 255, 0) 100%
     );
-    transform: rotate(-15deg);
+    /* Scaled to 1.2 to give padding buffer during translation shifts */
+    transform: rotate(-15deg) scale(1.2);
+    will-change: transform;
+    pointer-events: none;
 }
 
 /* ==========================================================================
@@ -908,6 +915,10 @@ body {
     opacity: 1;
 }
 
+.modal-content, .modal-content * {
+    font-family: var(--font-body);
+}
+
 .modal-content {
     width: min(520px, 90vw);
     max-height: 80vh;
@@ -943,7 +954,6 @@ body {
     font-size: 1.1rem;
     font-weight: bold;
     color: var(--phosphor-green-bright);
-    letter-spacing: 1px;
 }
 
 .modal-close {
@@ -975,7 +985,6 @@ body {
     font-size: 0.95rem;
     color: var(--phosphor-green);
     margin: 15px 0 6px 0;
-    letter-spacing: 0.5px;
     border-bottom: 1px dashed rgba(0, 255, 85, 0.1);
     padding-bottom: 2px;
 }
@@ -998,6 +1007,7 @@ body {
 }
 
 .modal-body code {
+    font-family: var(--font-radar) !important;
     background: rgba(0, 255, 85, 0.1);
     color: var(--phosphor-green);
     padding: 1px 4px;
@@ -1010,7 +1020,7 @@ body {
     border: 1px solid var(--panel-border);
     padding: 8px;
     border-radius: 3px;
-    font-family: var(--font-radar);
+    font-family: var(--font-radar) !important;
     font-size: 0.85rem;
     color: var(--phosphor-green);
     text-align: center;
@@ -1026,4 +1036,101 @@ body {
 .modal-body a:hover {
     color: var(--phosphor-green);
     text-shadow: 0 0 6px var(--phosphor-glow);
+}
+
+/* ==========================================================================
+   CONSOLE TYPOGRAPHY & FONT DUALITY OVERRIDES
+   ========================================================================== */
+/* UI Headers, Labels, Buttons & Descriptions (Roboto) */
+.glitch-title,
+.system-status,
+.panel-title,
+.list-headers,
+.control-label,
+.tel-label,
+.retro-btn,
+.filter-btn,
+.empty-list-message,
+.empty-telemetry,
+.empty-telemetry-message {
+    font-family: var(--font-body);
+}
+
+/* Tabular Telemetry & Raw Data Values (Roboto Mono) */
+.control-value,
+.tel-val,
+.target-list,
+.target-item,
+.target-item * {
+    font-family: var(--font-radar) !important;
+}
+
+/* ==========================================================================
+   CUSTOM ZOOM CONTROLS (Tactile Off-White Keycaps)
+   ========================================================================== */
+.radar-zoom-control {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 2100;
+    display: flex;
+    flex-direction: column;
+    gap: 4px; /* Gaps between distinct physical buttons */
+    background: #141815; /* Dark recessed mounting well */
+    padding: 3px;
+    border: 1px solid #232a26;
+    border-radius: 4px;
+    box-shadow: 
+        0 1px 0 rgba(255, 255, 255, 0.05),
+        0 4px 12px rgba(0, 0, 0, 0.8),
+        inset 0 2px 4px rgba(0, 0, 0, 0.6); /* recessed depth */
+    pointer-events: auto;
+}
+
+.radar-zoom-control button {
+    width: 32px;
+    height: 32px;
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: bold;
+    border: 1px solid #3c3a36; /* Darkened bezel border */
+    border-bottom: 2px solid #2d2b28; /* Darkened bottom 3D ridge */
+    border-radius: 3px;
+    
+    /* Muted, shadow-shrouded off-white plastic keycap gradient */
+    background: linear-gradient(to bottom, #524f49 0%, #3e3b36 100%);
+    color: #0f1110; /* Dark charcoal text */
+    
+    /* Toned-down embossed letter-carving shadow highlight */
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.12);
+    
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Muted keycap shadows: faint top sheen highlight and dark dirt vignettes */
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.15), /* Toned-down top specular highlight */
+        inset 0 0 3px rgba(40, 32, 24, 0.3),     /* Deepened dirt vignette in crevices */
+        0 1px 2px rgba(0, 0, 0, 0.5);            /* Shadow cast inside key well */
+        
+    transition: all 0.08s ease;
+}
+
+/* Hover: Slightly rubbed highlight from friction, but still muted */
+.radar-zoom-control button:hover {
+    background: linear-gradient(to bottom, #5c5952 0%, #46433d 100%);
+    border-color: #4b4843;
+    color: #000000;
+}
+
+/* Pressed State: physically descends into well */
+.radar-zoom-control button:active {
+    background: linear-gradient(to bottom, #393632 0%, #403d38 100%);
+    border-bottom-width: 1px; /* Flatten bottom 3D ridge */
+    box-shadow: 
+        inset 0 2px 4px rgba(0, 0, 0, 0.4),
+        inset 0 0 3px rgba(40, 32, 24, 0.5);
+    transform: translateY(1px); /* Physically sink the keycap */
 }
