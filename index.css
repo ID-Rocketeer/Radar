@@ -145,7 +145,7 @@ body {
     position: relative; /* Anchor for mounting screws and bezel overlays */
     display: flex;
     flex-direction: column;
-    padding: 44px; /* Wider bezel borders so 20px screws inside 24px pockets fit perfectly with proper clearance */
+    padding: 30px; /* Scaled back to 2/3 width to buy back horizontal space for contents */
     gap: 15px;
     z-index: 20;
     overflow: hidden;
@@ -913,7 +913,7 @@ body {
         border-right: none;
         border-bottom: 1px solid rgba(0, 0, 0, 0.5);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7);
-        padding: 44px; /* Maintain bezel margin for 24px positioned screws */
+        padding: 30px; /* Maintain bezel margin for 15px positioned screws */
         gap: 12px;
     }
     
@@ -1598,19 +1598,33 @@ body {
     z-index: 2025;
 }
 
-/* Adjust z-index of sidebar screws, apply Z-translation */
+/* Adjust z-index of sidebar screws, apply Z-translation, and scale size down to 2/3 */
 .sidebar-screw {
+    width: 16px; /* Scaled pocket size */
+    height: 16px; /* Scaled pocket size */
     z-index: 25;
     transform: translate(-50%, -50%) translateZ(5px);
 }
 
-/* Sidebar Screws specific centering coordinates (pulled in to center perfectly in 44px bezel) */
-.sidebar-screw.tl { top: 24px; left: 24px; }
-.sidebar-screw.tr { top: 24px; left: calc(100% - 24px); }
-.sidebar-screw.ml { top: 50%; left: 24px; }
-.sidebar-screw.mr { top: 50%; left: calc(100% - 24px); }
-.sidebar-screw.bl { top: calc(100% - 24px); left: 24px; }
-.sidebar-screw.br { top: calc(100% - 24px); left: calc(100% - 24px); }
+/* Scale screw head (::before) and driver slot (::after) for the sidebar screws */
+.sidebar-screw::before {
+    top: 1.5px;
+    left: 1.5px;
+    right: 1.5px;
+    bottom: 1.5px; /* 13px screw head inside 16px pocket */
+}
+.sidebar-screw::after {
+    width: 9px; /* Scaled slot width */
+    height: 1.7px; /* Scaled slot height */
+}
+
+/* Sidebar Screws specific centering coordinates (pulled in to center perfectly in 30px bezel) */
+.sidebar-screw.tl { top: 15px; left: 15px; }
+.sidebar-screw.tr { top: 15px; left: calc(100% - 15px); }
+.sidebar-screw.ml { top: 50%; left: 15px; }
+.sidebar-screw.mr { top: 50%; left: calc(100% - 15px); }
+.sidebar-screw.bl { top: calc(100% - 15px); left: 15px; }
+.sidebar-screw.br { top: calc(100% - 15px); left: calc(100% - 15px); }
 
 /* Suppress OpenStreetMap label in landscape mode on phones to save vertical space */
 @media (max-height: 480px) and (orientation: landscape) {
