@@ -622,19 +622,7 @@ function triggerAircraftSweep(hex) {
             resetTelemetryDisplay();
         }
         
-        // Remove from target list and DOM
-        const rowEl = document.getElementById(`row-${safeHex}`);
-        if (rowEl && rowEl.parentNode) {
-            rowEl.parentNode.removeChild(rowEl);
-        }
-        delete targetListDomMap[hex];
-        
-        // Update target count in header
-        const targetCountEl = document.getElementById('target-count');
-        if (targetCountEl) {
-            const count = Object.values(activeAircraft).filter(a => !a.pendingRemoval).length;
-            targetCountEl.innerText = count;
-        }
+        updateTargetList(); // Reconcile list DOM and update target count immediately
         return;
     }
 
@@ -878,7 +866,6 @@ function updateTargetList() {
     
     // Filter and sort active aircraft list
     const filteredAc = Object.values(activeAircraft).filter(ac => {
-        if (ac.pendingRemoval) return false; // Hide departing targets immediately from list
         if (!ac.sweptOnce) return false; // Hide unswept targets from list
         if (activeFilter === 'mil') return ac.mil;
         if (activeFilter === 'commercial') {
