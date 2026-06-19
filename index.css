@@ -1611,3 +1611,11 @@ body {
 .sidebar-screw.mr { top: 50%; left: calc(100% - 24px); }
 .sidebar-screw.bl { top: calc(100% - 24px); left: 24px; }
 .sidebar-screw.br { top: calc(100% - 24px); left: calc(100% - 24px); }
+
+/* Suppress OpenStreetMap label in landscape mode on phones to save vertical space */
+@media (max-height: 480px) and (orientation: landscape) {
+    .sidebar-top-label-container {
+        display: none;
+    }
+}
+
