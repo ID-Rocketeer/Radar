@@ -581,6 +581,7 @@ body {
     /* Unswept / dim state */
     opacity: 0.35;
     transition: opacity 3s ease-out 5s; /* Stay fully bright for 5s, then fade to dim over 3s */
+    will-change: opacity;
 }
 
 /* The glowing plane icon */

@@ -47,6 +47,36 @@ let sweepEl = null; // Global reference to the sweep line DOM element
 let sweepActive = true; // Flag to halt/resume sweep line rotation on connection errors
 let pollIntervalId = null; // ID to track active polling interval
 
+// Global bearing-based index (360 buckets of Sets, one for each degree)
+let bearingBuckets = Array.from({ length: 360 }, () => new Set());
+
+function getBearingBucketIndex(bearing) {
+    return Math.floor((bearing % 360 + 360) % 360);
+}
+
+function addAircraftToBearingIndex(hex, bearing) {
+    const idx = getBearingBucketIndex(bearing);
+    bearingBuckets[idx].add(hex);
+}
+
+function removeAircraftFromBearingIndex(hex, bearing) {
+    const idx = getBearingBucketIndex(bearing);
+    bearingBuckets[idx].delete(hex);
+}
+
+function updateAircraftBearingIndex(hex, oldBearing, newBearing) {
+    const oldIdx = getBearingBucketIndex(oldBearing);
+    const newIdx = getBearingBucketIndex(newBearing);
+    if (oldIdx !== newIdx) {
+        bearingBuckets[oldIdx].delete(hex);
+        bearingBuckets[newIdx].add(hex);
+    }
+}
+
+// Batching & scaling settings (Option B)
+let sweepBatchSectorSize = 1; // Sector size in degrees (calculated dynamically based on aircraft count)
+let lastCheckedAngle = 0; // Last angle where sweep checks were run
+
 // SVG silhouettes for different aircraft classifications (optimized for 24x24 viewBox)
 const AIRCRAFT_ICONS = {
     // Standard commercial airliner/medium-heavy jet
@@ -208,6 +238,10 @@ function initMap() {
         zoomSnap: 0, // Enable smooth fractional zoom levels
         zoomDelta: 0.5 // Set zoom buttons step size
     }).setView([HOME_LAT, HOME_LON], 8); // Start at zoom 8 (which is safe and covers bezel)
+
+    // Create isolated pane for the sweep line to prevent repainting the marker pane
+    map.createPane('sweepPane');
+    map.getPane('sweepPane').style.zIndex = 450;
 
     // Load CartoDB Dark Matter tile layer
     // The CSS filter in index.css will transform these dark-grayscale tiles into a bright retro-green screen
@@ -545,7 +579,7 @@ function startRadarSweep() {
         html: '<div class="radar-sweep-line" id="sweep-line"></div>',
         iconSize: [0, 0]
     });
-    L.marker([HOME_LAT, HOME_LON], { icon: sweepIcon, interactive: false }).addTo(map);
+    L.marker([HOME_LAT, HOME_LON], { icon: sweepIcon, interactive: false, pane: 'sweepPane' }).addTo(map);
 
     let lastTime = null;
     let currentAngle = 0;
@@ -611,18 +645,46 @@ function startRadarSweep() {
 function checkSweptAircraft(prevAngle, currentAngle) {
     // The width of the sweep intersection sector in degrees
     const sweepDiff = (currentAngle - prevAngle + 360) % 360;
-
-    Object.keys(activeAircraft).forEach(hex => {
-        const ac = activeAircraft[hex];
-        
-        // Use pending update bearing (new position) if available, otherwise current bearing
-        const sweepBearing = ac.pendingUpdate ? ac.pendingUpdate.bearing : ac.bearing;
-        const angleDiff = (sweepBearing - prevAngle + 360) % 360;
-
-        if (angleDiff <= sweepDiff) {
-            triggerAircraftSweep(hex);
+    
+    // Find all integer degrees between prevAngle and currentAngle (handling wrap-around)
+    const start = Math.floor(prevAngle);
+    const end = Math.floor(currentAngle);
+    
+    let degreesToCheck = [];
+    let d = start;
+    while (d !== end) {
+        degreesToCheck.push(d);
+        d = (d + 1) % 360;
+    }
+    degreesToCheck.push(end); // Include the end degree
+    
+    let needsTargetListUpdate = false;
+    
+    degreesToCheck.forEach(deg => {
+        const hexes = bearingBuckets[deg];
+        if (hexes) {
+            // Copy to array to avoid mutation issues if triggerAircraftSweep deletes aircraft
+            const hexList = Array.from(hexes);
+            hexList.forEach(hex => {
+                const ac = activeAircraft[hex];
+                if (!ac) return;
+                
+                const sweepBearing = ac.pendingUpdate ? ac.pendingUpdate.bearing : ac.bearing;
+                const angleDiff = (sweepBearing - prevAngle + 360) % 360;
+                
+                if (angleDiff <= sweepDiff) {
+                    const listChanged = triggerAircraftSweep(hex);
+                    if (listChanged) {
+                        needsTargetListUpdate = true;
+                    }
+                }
+            });
         }
     });
+
+    if (needsTargetListUpdate) {
+        updateTargetList();
+    }
 }
 
 /* ==========================================================================
@@ -630,7 +692,7 @@ function checkSweptAircraft(prevAngle, currentAngle) {
    ========================================================================== */
 function triggerAircraftSweep(hex) {
     const ac = activeAircraft[hex];
-    if (!ac) return;
+    if (!ac) return false;
 
     const safeHex = sanitizeId(hex);
 
@@ -642,6 +704,9 @@ function triggerAircraftSweep(hex) {
         if (ac.trail && map.hasLayer(ac.trail)) {
             map.removeLayer(ac.trail);
         }
+        
+        const activeBearing = ac.pendingUpdate ? ac.pendingUpdate.bearing : ac.bearing;
+        removeAircraftFromBearingIndex(hex, activeBearing);
         delete activeAircraft[hex];
         
         if (selectedHex === hex) {
@@ -649,15 +714,16 @@ function triggerAircraftSweep(hex) {
             resetTelemetryDisplay();
         }
         
-        updateTargetList(); // Reconcile list DOM and update target count immediately
-        return;
+        return true; // Reconcile list DOM and update target count after all frame processing completes
     }
+
+    let needsListUpdate = false;
 
     // Enable visibility and lazy-create marker if this is its first sweep
     if (!ac.sweptOnce) {
         ac.sweptOnce = true;
         updateMarkerVisibility(hex);
-        updateTargetList(); // Update the sidebar list immediately as the target is painted
+        needsListUpdate = true; // Update the sidebar list after all frame processing completes
     }
 
     const hasPending = ac.pendingUpdate !== null;
@@ -665,6 +731,11 @@ function triggerAircraftSweep(hex) {
     // If new data arrived, apply the update precisely at the moment of the sweep pass
     if (hasPending) {
         const update = ac.pendingUpdate;
+        
+        // Optimization: check if coordinate or track actually changed to prevent redundant DOM updates
+        const coordChanged = ac.lat !== update.lat || ac.lon !== update.lon;
+        const trackChanged = ac.track !== update.track;
+
         ac.lat = update.lat;
         ac.lon = update.lon;
         ac.alt = update.alt;
@@ -674,26 +745,33 @@ function triggerAircraftSweep(hex) {
         ac.dist = update.dist;
         ac.bearing = update.bearing;
 
-        // Move marker if it is currently rendered (active on map)
-        if (ac.marker) {
+        // Move marker only if it is currently rendered (active on map) AND coordinates changed
+        if (ac.marker && coordChanged) {
             ac.marker.setLatLng([ac.lat, ac.lon]);
         }
         
-        // Update SVG icon rotation (safely via getElementById to handle hex IDs containing tildes "~")
-        const markerDom = document.getElementById(`marker-${safeHex}`);
-        const iconSvg = markerDom ? markerDom.querySelector('.aircraft-icon') : null;
-        if (iconSvg) {
-            iconSvg.style.transform = `rotate(${ac.track}deg)`;
+        // Update SVG icon rotation only if track changed
+        if (trackChanged) {
+            const markerDom = document.getElementById(`marker-${safeHex}`);
+            const iconSvg = markerDom ? markerDom.querySelector('.aircraft-icon') : null;
+            if (iconSvg) {
+                iconSvg.style.transform = `rotate(${ac.track}deg)`;
+            }
         }
 
-        // Update trail polyline if it is currently rendered
-        if (ac.trail && trailsEnabled) {
-            ac.trail.addLatLng([ac.lat, ac.lon]);
-            // Keep trail length constrained to recent 15 coordinates
+        // Update trail polyline if it is currently rendered AND coordinates changed to a non-duplicate
+        if (ac.trail && trailsEnabled && coordChanged) {
             const latlngs = ac.trail.getLatLngs();
-            if (latlngs.length > 15) {
-                latlngs.shift();
-                ac.trail.setLatLngs(latlngs);
+            const lastLatLng = latlngs.length > 0 ? latlngs[latlngs.length - 1] : null;
+            const isDuplicate = lastLatLng && lastLatLng.lat === ac.lat && lastLatLng.lng === ac.lon;
+            
+            if (!isDuplicate) {
+                ac.trail.addLatLng([ac.lat, ac.lon]);
+                // Keep trail length constrained to recent 15 coordinates
+                if (latlngs.length > 15) {
+                    latlngs.shift();
+                    ac.trail.setLatLngs(latlngs);
+                }
             }
         }
 
@@ -722,6 +800,8 @@ function triggerAircraftSweep(hex) {
         rowEl.querySelector('.col-spd').innerText = ac.speed ? ac.speed : '0';
         rowEl.querySelector('.col-dst').innerText = ac.dist.toFixed(1);
     }
+
+    return needsListUpdate;
 }
 
 /* ==========================================================================
@@ -816,6 +896,10 @@ function processAPIResponse(data) {
             }
 
             // Buffer the coordinates: do not move the plane until the sweep line passes
+            const oldActiveBearing = ac.pendingUpdate ? ac.pendingUpdate.bearing : ac.bearing;
+            const newActiveBearing = calcBearing(lat, lon);
+            updateAircraftBearingIndex(cleanHex, oldActiveBearing, newActiveBearing);
+
             ac.pendingUpdate = {
                 lat: lat,
                 lon: lon,
@@ -823,7 +907,7 @@ function processAPIResponse(data) {
                 speed: speed,
                 track: track,
                 seen: seen,
-                bearing: calcBearing(lat, lon), // Precompute the new bearing!
+                bearing: newActiveBearing, // Precompute the new bearing!
                 dist: currentDistance
             };
             ac.seen = seen;
@@ -853,6 +937,7 @@ function processAPIResponse(data) {
                 pendingRemoval: false,
                 sweptOnce: false
             };
+            addAircraftToBearingIndex(cleanHex, activeAircraft[cleanHex].bearing);
         }
 
         // Dynamically update marker creation/visibility (includes viewport bounds checking)
@@ -866,6 +951,10 @@ function processAPIResponse(data) {
             ac.pendingRemoval = true;
         }
     });
+
+    // Calculate Option B sweep sector batch size dynamically based on aircraft count (N = INT((n + 360) / 360))
+    const activeCount = Object.keys(activeAircraft).length;
+    sweepBatchSectorSize = Math.max(1, Math.floor((activeCount + 360) / 360));
 
     // Refresh sidebar displays
     updateTargetList();
