@@ -638,6 +638,13 @@ function triggerAircraftSweep(hex) {
         return;
     }
 
+    // Enable visibility and lazy-create marker if this is its first sweep
+    if (!ac.sweptOnce) {
+        ac.sweptOnce = true;
+        updateMarkerVisibility(hex);
+        updateTargetList(); // Update the sidebar list immediately as the target is painted
+    }
+
     const hasPending = ac.pendingUpdate !== null;
 
     // If new data arrived, apply the update precisely at the moment of the sweep pass
@@ -828,7 +835,8 @@ function processAPIResponse(data) {
                 seen: seen,
                 iconType: getAircraftIconType(rawAc),
                 pendingUpdate: null,
-                pendingRemoval: false
+                pendingRemoval: false,
+                sweptOnce: false
             };
         }
 
@@ -871,6 +879,7 @@ function updateTargetList() {
     // Filter and sort active aircraft list
     const filteredAc = Object.values(activeAircraft).filter(ac => {
         if (ac.pendingRemoval) return false; // Hide departing targets immediately from list
+        if (!ac.sweptOnce) return false; // Hide unswept targets from list
         if (activeFilter === 'mil') return ac.mil;
         if (activeFilter === 'commercial') {
             // Heuristic for commercial flights: Not military, cruising at higher altitudes
@@ -978,6 +987,11 @@ function updateMarkerVisibility(hex) {
 
     // Viewport bounds pruning check
     if (visible && !isAircraftInViewport(ac)) {
+        visible = false;
+    }
+
+    // Hide if not swept once yet
+    if (visible && !ac.sweptOnce) {
         visible = false;
     }
 
