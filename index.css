@@ -391,12 +391,25 @@ body {
     height: 100%;
     position: relative;
     background-color: var(--phosphor-bg);
+    overflow: hidden; /* Prevent huge rotating sweep elements from causing scroll bounds changes */
+    contain: layout paint; /* Isolate layout and paint from parent reflows */
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
 }
 
 #map {
     width: 100%;
     height: 100%;
     background: #020b02 !important;
+    overflow: hidden;
+    contain: layout paint;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+}
+
+.leaflet-map-pane {
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
 }
 
 /* Apply monochrome green filter ONLY to map background tiles, 
@@ -454,6 +467,9 @@ body {
     /* Force GPU acceleration to prevent CPU paint thrashing on rotation */
     will-change: transform;
     transform: translateZ(0);
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 /* Glowing Sweep Leading Edge Line */
