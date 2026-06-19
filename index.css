@@ -95,25 +95,69 @@ body {
     height: 100dvh;
     position: relative;
     z-index: 10;
+    
+    /* Brushed metal backing representing the physical base plate */
+    background: 
+        /* Specular light reflection sheen */
+        linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.08) 0%,
+            rgba(255, 255, 255, 0.0) 35%,
+            rgba(0, 0, 0, 0.45) 50%,
+            rgba(255, 255, 255, 0.08) 70%,
+            rgba(0, 0, 0, 0.55) 100%
+        ),
+        /* Repeating micro-brush streaks */
+        repeating-linear-gradient(
+            90deg,
+            #1e2320 0px,
+            #1e2320 1px,
+            #272d29 2px,
+            #212623 3px,
+            #1e2320 4px
+        );
+    background-attachment: fixed;
 }
 
 /* ==========================================================================
    SIDEBAR COMMAND PANEL
    ========================================================================== */
-/* Left Sidebar Chassis Panel */
-.radar-sidebar {
+/* Sidebar Column containing top/bottom labels and the sidebar panel bezel */
+.sidebar-column {
     width: 380px;
     height: 100%;
-    border-right: 1px solid rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
-    padding: 15px;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 20;
+    padding: 10px 0; /* Clear space for top/bottom margins of base plate labels */
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+/* Left Sidebar Chassis Panel (Bezel Frame) */
+.radar-sidebar {
+    width: calc(100% - 20px); /* 10px margins left/right within sidebar-column */
+    flex-grow: 1; /* Automatically fill remaining vertical space */
+    margin: 10px 10px; /* Vertical gap between chassis and base plate stickers */
+    position: relative; /* Anchor for mounting screws and bezel overlays */
+    display: flex;
+    flex-direction: column;
+    padding: 44px; /* Wider bezel borders so 20px screws inside 24px pockets fit perfectly with proper clearance */
     gap: 15px;
     z-index: 20;
-    box-shadow: 1px 0 0 rgba(255, 255, 255, 0.04);
     overflow: hidden;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.75); /* Metal bezel plate edges */
     
-    /* Brushed metal texture matching the scope bezel */
+    /* 3D shadows to show the bezel panel raised above the base plate */
+    box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.85), 
+        inset 1px 1px 1.5px rgba(255, 255, 255, 0.06);
+    
+    /* Brushed metal texture matching the base plate */
     background: 
         /* Specular light reflection sheen */
         linear-gradient(
@@ -731,16 +775,17 @@ body {
         );
     background-attachment: fixed;
         
-    /* Circular mask cutout: center is transparent, corners are solid brushed aluminum */
+    /* Circular mask cutout: center is transparent, corners are solid brushed aluminum.
+       Tuned to min(88dvh, calc(0.88 * (100vw - 380px))) * 0.5 - 34px to overlap under the 32px rim border */
     -webkit-mask-image: radial-gradient(
         circle at center,
-        transparent calc(min(96dvh, calc(0.96 * (100vw - 380px))) * 0.475),
-        black calc(min(96dvh, calc(0.96 * (100vw - 380px))) * 0.476)
+        transparent calc(min(88dvh, calc(0.88 * (100vw - 380px))) * 0.5 - 34px),
+        black calc(min(88dvh, calc(0.88 * (100vw - 380px))) * 0.5 - 33px)
     );
     mask-image: radial-gradient(
         circle at center,
-        transparent calc(min(96dvh, calc(0.96 * (100vw - 380px))) * 0.475),
-        black calc(min(96dvh, calc(0.96 * (100vw - 380px))) * 0.476)
+        transparent calc(min(88dvh, calc(0.88 * (100vw - 380px))) * 0.5 - 34px),
+        black calc(min(88dvh, calc(0.88 * (100vw - 380px))) * 0.5 - 33px)
     );
 }
 
@@ -748,8 +793,6 @@ body {
 .radar-scope-rim, 
 .radar-glass-edge, 
 .radar-glass-glare {
-    width: min(96dvh, calc(0.96 * (100vw - 380px)));
-    height: min(96dvh, calc(0.96 * (100vw - 380px)));
     border-radius: 50%;
     position: absolute;
     top: 50%;
@@ -759,21 +802,49 @@ body {
     box-sizing: border-box;
 }
 
+/* Sizing for the outer rim (D) */
+.radar-scope-rim {
+    width: min(88dvh, calc(0.88 * (100vw - 380px)));
+    height: min(88dvh, calc(0.88 * (100vw - 380px)));
+}
+
+/* Sizing for the glass overlays (D - 64px) to sit strictly inside the 32px rim border */
+.radar-glass-edge, 
+.radar-glass-glare {
+    width: calc(min(88dvh, calc(0.88 * (100vw - 380px))) - 64px);
+    height: calc(min(88dvh, calc(0.88 * (100vw - 380px))) - 64px);
+}
+
+/* Container for radar scope mounting screws (raised to z-index 2200 to prevent overlays from clipping them)
+   Sized to D - 32px so the screws are centered perfectly in the 32px wide rim border */
+.radar-scope-screws-container {
+    width: calc(min(88dvh, calc(0.88 * (100vw - 380px))) - 32px);
+    height: calc(min(88dvh, calc(0.88 * (100vw - 380px))) - 32px);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 2200; /* Completely on top of glass edge, glare, and bezel */
+    overflow: visible;
+}
+
 /* 3D Extruded Scope Bezel Rim */
 .radar-scope-rim {
     z-index: 2010;
+    overflow: visible !important; /* Ensure child elements do not clip */
     /* Multilayered shadows and borders to simulate a heavy, rounded plastic/metallic rim */
-    border: 14px solid #141a16; /* Base heavy plastic rim */
+    border: 32px solid #141a16; /* Heavy metal rim bezel holding the heavy CRT glass screen */
     box-shadow: 
         0 8px 24px rgba(0, 0, 0, 0.8), /* Depth shadow onto the brushed aluminum panel */
         0 0 0 1px rgba(255, 255, 255, 0.08), /* Subtle rim outer highlights */
         0 4px 12px rgba(0, 0, 0, 0.95) inset, /* Deep inner bezel depth shadow */
         0 -2px 6px rgba(255, 255, 255, 0.15) inset, /* Specular edge lighting inside rim */
-        0 2px 4px rgba(255, 255, 255, 0.08); /* Outer bezel bevel light catcher */
+        0 2px 4px rgba(255, 255, 255, 0.08), /* Outer bezel bevel light catcher */
+        inset 0 0 0 5px #202b23; /* Inner circular detail ridge matching the thicker rim */
     
     /* Simulate overhead specular reflections */
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 50%, rgba(0, 0, 0, 0.45) 100%);
-    border: 3px solid #202b23; /* Inner circular detail ridge */
 }
 
 /* Dimensional CRT Glass Refraction Edge */
@@ -824,14 +895,22 @@ body {
         height: 100dvh;
     }
     
+    .sidebar-column {
+        width: 100%;
+        height: auto;
+        padding: 10px;
+        box-sizing: border-box;
+    }
+    
     .radar-sidebar {
         width: 100%;
         height: auto;
+        margin: 10px 0;
         flex-shrink: 0;
         border-right: none;
         border-bottom: 1px solid rgba(0, 0, 0, 0.5);
-        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
-        padding: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7);
+        padding: 44px; /* Maintain bezel margin for 24px positioned screws */
         gap: 12px;
     }
     
@@ -864,24 +943,34 @@ body {
     }
     
     /* Center scope overlay components for mobile */
-    .radar-scope-rim, 
+    .radar-scope-rim {
+        width: min(50dvh, 86vw);
+        height: min(50dvh, 86vw);
+    }
+    
     .radar-glass-edge, 
     .radar-glass-glare {
-        width: min(56dvh, 94vw);
-        height: min(56dvh, 94vw);
+        width: calc(min(50dvh, 86vw) - 64px);
+        height: calc(min(50dvh, 86vw) - 64px);
+    }
+    
+    /* Screws container for mobile */
+    .radar-scope-screws-container {
+        width: calc(min(50dvh, 86vw) - 32px);
+        height: calc(min(50dvh, 86vw) - 32px);
     }
     
     /* Bezel mask cutout for mobile */
     .radar-bezel {
         -webkit-mask-image: radial-gradient(
             circle at center,
-            transparent calc(min(56dvh, 94vw) * 0.475),
-            black calc(min(56dvh, 94vw) * 0.476)
+            transparent calc(min(50dvh, 86vw) * 0.5 - 34px),
+            black calc(min(50dvh, 86vw) * 0.5 - 33px)
         );
         mask-image: radial-gradient(
             circle at center,
-            transparent calc(min(56dvh, 94vw) * 0.475),
-            black calc(min(56dvh, 94vw) * 0.476)
+            transparent calc(min(50dvh, 86vw) * 0.5 - 34px),
+            black calc(min(50dvh, 86vw) * 0.5 - 33px)
         );
     }
 }
@@ -1303,12 +1392,22 @@ body {
 /* ==========================================================================
    CONSOLE STICKERS CONTAINERS (Layout wrappers)
    ========================================================================== */
-.sidebar-top-label-container,
+.sidebar-top-label-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 60px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
 .sidebar-bottom-label-container {
     display: flex;
     justify-content: center;
     align-items: center;
     width: 100%;
+    height: 60px;
     box-sizing: border-box;
     flex-shrink: 0;
 }
@@ -1431,3 +1530,108 @@ body {
     line-height: 1.2;
     text-align: center;
 }
+
+/* ==========================================================================
+   SIDEBAR PANEL BEZEL FRAME (Engraved joint seam)
+   ========================================================================== */
+.radar-sidebar::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    right: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.75);
+    border-top-color: rgba(255, 255, 255, 0.05); /* Panel top edge highlight */
+    border-left-color: rgba(255, 255, 255, 0.05);
+    border-radius: 5px;
+    pointer-events: none;
+    z-index: 5;
+    box-shadow: 
+        inset 1px 1px 2px rgba(0, 0, 0, 0.8), /* Inset panel seam depth */
+        0 0 0 1px rgba(0, 0, 0, 0.5); /* Outer boundary separation */
+}
+
+/* ==========================================================================
+   /* ==========================================================================
+   TACTILE MOUNTING SCREWS & RECESSED POCKETS (Veracity details)
+   ========================================================================== */
+.mounting-screw {
+    width: 24px; /* Recessed pocket outer diameter */
+    height: 24px; /* Recessed pocket outer diameter */
+    border-radius: 50%;
+    position: absolute;
+    pointer-events: none;
+    
+    /* Deep recessed shadow for the pocket hole in the metal sheet */
+    background: #0b0d0c;
+    box-shadow: 
+        inset 2px 2.5px 4px rgba(0, 0, 0, 0.95), /* Inner shadow of the pocket walls */
+        inset -1.5px -1.5px 3px rgba(255, 255, 255, 0.05), /* Subtle inner edge highlight */
+        0 1px 1px rgba(255, 255, 255, 0.15), /* Beveled metal rim light catcher */
+        0 0 0 1px #040504; /* Dark outline of the hole */
+}
+
+/* The physical screw head itself, nested inside the pocket */
+.mounting-screw::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px; /* 20px screw head centered inside the 24px pocket */
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #cfd4d1 0%, #888d8a 40%, #454a47 75%, #1c211e 100%);
+    box-shadow: 
+        1px 1.5px 2px rgba(0, 0, 0, 0.8), /* Shadow cast by the screw head inside the pocket */
+        inset -1.5px -1.5px 2px rgba(0, 0, 0, 0.65), /* Screw head bevel shadow */
+        inset 1px 1px 1px rgba(255, 255, 255, 0.25); /* Screw head top highlight */
+}
+
+/* Recessed flathead screwdriver drive slot */
+.mounting-screw::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 13px; /* Scaled slot width */
+    height: 2.5px; /* Scaled slot height */
+    background: #090c0b;
+    transform: translate(-50%, -50%) rotate(var(--slot-rot, 0deg));
+    box-shadow: 0 0.8px 0.8px rgba(255, 255, 255, 0.2); /* Light reflection on slot lower edge */
+    z-index: 5;
+}
+
+/* Weathering variations using nth-child to give each screw head organic texture */
+/* Screw 1: Slightly oxidized/rusted in crevices */
+.mounting-screw:nth-child(3n+1)::before {
+    background: radial-gradient(circle at 35% 35%, #c2c7c4 0%, #7e8380 35%, #5c5245 70%, #211e1a 100%);
+}
+/* Screw 2: Darker, grimy/greasy finish */
+.mounting-screw:nth-child(3n+2)::before {
+    background: radial-gradient(circle at 35% 35%, #a6aba8 0%, #636865 40%, #2d3330 75%, #0f1411 100%);
+}
+/* Screw 3: Slightly worn metallic sheen (shinier center) */
+.mounting-screw:nth-child(3n)::before {
+    background: radial-gradient(circle at 35% 35%, #e1e6e3 0%, #909592 45%, #3c413e 80%, #171c19 100%);
+}
+
+/* Adjust z-index of scope screws to sit above CRT bezel rims and apply Z-translation */
+.scope-screw {
+    transform: translate(-50%, -50%) translateZ(5px);
+    z-index: 2025;
+}
+
+/* Adjust z-index of sidebar screws, apply Z-translation */
+.sidebar-screw {
+    z-index: 25;
+    transform: translate(-50%, -50%) translateZ(5px);
+}
+
+/* Sidebar Screws specific centering coordinates (pulled in to center perfectly in 44px bezel) */
+.sidebar-screw.tl { top: 24px; left: 24px; }
+.sidebar-screw.tr { top: 24px; left: calc(100% - 24px); }
+.sidebar-screw.ml { top: 50%; left: 24px; }
+.sidebar-screw.mr { top: 50%; left: calc(100% - 24px); }
+.sidebar-screw.bl { top: calc(100% - 24px); left: 24px; }
+.sidebar-screw.br { top: calc(100% - 24px); left: calc(100% - 24px); }
