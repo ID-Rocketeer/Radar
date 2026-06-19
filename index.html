@@ -30,6 +30,7 @@
                         <span class="status-indicator active"></span>
                         <span class="status-text">SYS_STATUS: ONLINE</span>
                     </div>
+                    <button class="help-btn" id="help-btn" title="Operations Manual">?</button>
                 </div>
 
                 <!-- Radar Configuration Panel -->
@@ -99,9 +100,55 @@
         </main>
     </div>
 
+    <!-- Help Modal Overlay -->
+    <div class="modal-overlay" id="help-modal">
+        <div class="modal-content sidebar-glass-panel">
+            <div class="modal-header">
+                <span class="modal-title">// SYSTEM OPERATIONS MANUAL</span>
+                <button class="modal-close" id="help-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3>1. RANGE RINGS</h3>
+                <p>The scope displays 6 concentric green dashed range rings centered on the home station. The ring distances are scaled to the current range:</p>
+                <ul>
+                    <li><strong>Ring 1 (10%):</strong> <span id="ring-val-1">--</span> NM</li>
+                    <li><strong>Ring 2 (20%):</strong> <span id="ring-val-2">--</span> NM</li>
+                    <li><strong>Ring 3 (40%):</strong> <span id="ring-val-3">--</span> NM</li>
+                    <li><strong>Ring 4 (60%):</strong> <span id="ring-val-4">--</span> NM</li>
+                    <li><strong>Ring 5 (80%):</strong> <span id="ring-val-5">--</span> NM</li>
+                    <li><strong>Ring 6 (100%):</strong> <span id="ring-val-6">--</span> NM (Scope boundary)</li>
+                </ul>
+
+                <h3>2. URL PARAMETERS</h3>
+                <p>Modify query parameters in the address bar to configure the station location and radar range:</p>
+                <div class="code-block">
+                    ?lat=[latitude]&amp;lon=[longitude]&amp;rng=[range_nm]
+                </div>
+                <ul>
+                    <li><strong>Latitude options:</strong> <code>lat</code>, <code>latitude</code> (e.g. <code>30.1945</code>)</li>
+                    <li><strong>Longitude options:</strong> <code>lon</code>, <code>lng</code>, <code>long</code>, <code>longitude</code> (e.g. <code>-97.6699</code>)</li>
+                    <li><strong>Range options:</strong> <code>rng</code>, <code>range</code> (clamped <code>2</code> to <code>250</code> NM)</li>
+                </ul>
+                <p>Presets (Click to load):</p>
+                <ul>
+                    <li><a href="?lat=30.19453&amp;lon=-97.66987&amp;rng=25" target="_self">Austin-Bergstrom (AUS) // 25 NM</a></li>
+                    <li><a href="?lat=38.8512&amp;lon=-77.0377&amp;rng=10" target="_self">Reagan Washington (DCA) // 10 NM</a></li>
+                    <li><a href="?lat=36.236&amp;lon=-115.034&amp;rng=40" target="_self">Nellis AFB (LSV) // 40 NM</a></li>
+                </ul>
+
+                <h3>3. SYSTEM FEATURES</h3>
+                <ul>
+                    <li><strong>TRAILS Toggle:</strong> Show or hide historical breadcrumbs.</li>
+                    <li><strong>FULLSCREEN Toggle:</strong> Expand scope view to fit screen.</li>
+                    <li><strong>TARGET FILTERS:</strong> Switch scope display between All traffic, Military only, Commercial, or General Aviation.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
     <!-- Leaflet JS -->
     <script data-cfasync="false" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <!-- Application Logic -->
-    <script data-cfasync="false" src="app.js?v=2.5"></script>
+    <script data-cfasync="false" src="app.js?v=2.7"></script>
 </body>
 </html>

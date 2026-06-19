@@ -324,9 +324,79 @@ function initControls() {
             updateMapMarkersVisibility();
         });
     });
+
+    // Help Modal Operations Manual Handler
+    const helpBtn = document.getElementById('help-btn');
+    const helpModal = document.getElementById('help-modal');
+    const helpClose = document.getElementById('help-close');
+
+    if (helpBtn && helpModal) {
+        helpBtn.addEventListener('click', () => {
+            // Update current range ring values dynamically in help modal
+            const factors = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
+            factors.forEach((factor, idx) => {
+                const ringValEl = document.getElementById(`ring-val-${idx + 1}`);
+                if (ringValEl) {
+                    ringValEl.innerText = (factor * RANGE_NM).toFixed(1);
+                }
+            });
+
+            helpModal.style.display = 'flex';
+            // Trigger reflow to apply CSS transitions
+            void helpModal.offsetWidth;
+            helpModal.classList.add('active');
+        });
+    }
+
+    const closeHelp = () => {
+        if (helpModal) {
+            helpModal.classList.remove('active');
+            // Wait for transition to complete before setting display to none
+            setTimeout(() => {
+                if (!helpModal.classList.contains('active')) {
+                    helpModal.style.display = 'none';
+                }
+            }, 300);
+        }
+    };
+
+    if (helpClose) {
+        helpClose.addEventListener('click', closeHelp);
+    }
+
+    if (helpModal) {
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                closeHelp();
+            }
+        });
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeHelp();
+        }
+    });
 }
 
 
+
+// Helper to get the exact rendered width of the scope bezel rim from the DOM,
+// falling back to viewport-based calculations if the DOM is not fully ready yet.
+function getBezelDiameter() {
+    const rimEl = document.querySelector('.radar-scope-rim');
+    if (rimEl) {
+        const rect = rimEl.getBoundingClientRect();
+        if (rect.width > 0) {
+            return rect.width;
+        }
+    }
+    if (window.innerWidth <= 768) {
+        return Math.min(window.innerHeight * 0.56, window.innerWidth * 0.94);
+    } else {
+        return Math.min(window.innerHeight * 0.96, (window.innerWidth - 380) * 0.96);
+    }
+}
 
 let initialZoomSet = false;
 
@@ -346,30 +416,27 @@ function updateMinZoom() {
         const destPoint = map.latLngToLayerPoint(destLatLng);
         const radiusPx = centerPoint.distanceTo(destPoint);
         
-        // Calculate bezel diameter dynamically based on device layout (mobile vs desktop)
-        let bezelDiameter;
-        if (window.innerWidth <= 768) {
-            bezelDiameter = Math.min(window.innerHeight * 0.56, window.innerWidth * 0.94);
-        } else {
-            bezelDiameter = Math.min(window.innerHeight * 0.96, (window.innerWidth - 380) * 0.96);
-        }
+        // Measure exact bezel rim size
+        const bezelDiameter = getBezelDiameter();
         
-        // Scale the target diameter to 95% (0.95) to match the visible inner screen boundary
-        // just inside the 14px thick plastic bezel rim (cutout is at 0.475 radius)
-        const requiredRatio = (bezelDiameter * 0.95) / (2 * radiusPx);
+        // Scale the target diameter to 94% (0.94) to match the outer range ring placement
+        // comfortably inside the 14px thick plastic bezel rim (cutout is at 0.475 radius)
+        const requiredRatio = (bezelDiameter * 0.94) / (2 * radiusPx);
         const targetZoomFloat = currentZoom + Math.log2(requiredRatio);
         
         // Use the exact fractional target zoom to lock the minimum zoom at the inner visible bezel border
         const minZoomVal = targetZoomFloat;
         
+        // Check if we are currently zoomed all the way out
+        const isAtMinZoom = Math.abs(currentZoom - map.getMinZoom()) < 0.05;
+        
         map.setMinZoom(minZoomVal);
         
-        // Always force initial load to start at the maximum configured range zoom level
-        if (!initialZoomSet) {
-            map.setZoom(minZoomVal);
+        // Always force initial load to start at the maximum configured range zoom level (disable transition animation to snap instantly)
+        // If the window is resized or layout reflows while at minZoom, adjust the zoom to the new minZoomVal automatically
+        if (!initialZoomSet || isAtMinZoom || currentZoom < minZoomVal) {
+            map.setZoom(minZoomVal, { animate: false });
             initialZoomSet = true;
-        } else if (map.getZoom() < minZoomVal) {
-            map.setZoom(minZoomVal);
         }
     } catch (e) {
         // Map projection or bounds not ready yet
@@ -414,22 +481,22 @@ function updateDisplayedRange() {
         const centerLatLng = L.latLng(HOME_LAT, HOME_LON);
         const centerPoint = map.latLngToLayerPoint(centerLatLng);
         
-        // Calculate bezel diameter dynamically based on device layout (mobile vs desktop)
-        let bezelDiameter;
-        if (window.innerWidth <= 768) {
-            bezelDiameter = Math.min(window.innerHeight * 0.56, window.innerWidth * 0.94);
-        } else {
-            bezelDiameter = Math.min(window.innerHeight * 0.96, (window.innerWidth - 380) * 0.96);
-        }
+        // Measure exact bezel rim size
+        const bezelDiameter = getBezelDiameter();
         
-        // The visible screen radius is 47.5% (0.475) of the bezel diameter
-        const visibleRadiusPx = bezelDiameter * 0.475;
+        // The outer range ring radius is 47.0% (0.47) of the bezel diameter
+        const visibleRadiusPx = bezelDiameter * 0.47;
         
         // Get LatLng at the edge of the visible scope rim
         const edgeLatLng = map.layerPointToLatLng([centerPoint.x + visibleRadiusPx, centerPoint.y]);
         
         // Calculate distance in NM
-        const displayedRange = calcDistance(HOME_LAT, HOME_LON, edgeLatLng.lat, edgeLatLng.lng);
+        let displayedRange = calcDistance(HOME_LAT, HOME_LON, edgeLatLng.lat, edgeLatLng.lng);
+        
+        // If the map is zoomed all the way out (at or close to minZoom), force display of exact configured range
+        if (Math.abs(map.getZoom() - map.getMinZoom()) < 0.05) {
+            displayedRange = RANGE_NM;
+        }
         
         rangeEl.innerText = `${displayedRange.toFixed(1)} NM`;
     } catch (e) {
