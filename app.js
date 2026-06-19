@@ -860,7 +860,25 @@ function isAircraftInViewport(ac) {
     }
 }
 
-// Incremental target list DOM reconciliation & slicing to top 100 targets
+// Heuristic to determine if a civilian flight is commercial air traffic
+function isCommercialAircraft(ac) {
+    if (ac.mil) return false;
+    
+    // 1. Check ICAO airline callsign format (3 uppercase letters followed by a digit)
+    const isAirline = /^[A-Z]{3}\d/.test(ac.callsign);
+    if (isAirline) return true;
+    
+    // 2. Check cruise altitude/speed thresholds (typical of jets/turboprops even if callsign is charter/ferry)
+    if (ac.alt > 15000 || ac.speed > 240) return true;
+    
+    // 3. Check ICAO size categories (A3 = Heavy, A5 = Large airliner)
+    const cat = (ac.category || '').toUpperCase();
+    if (cat === 'A3' || cat === 'A5') return true;
+    
+    return false;
+}
+
+// Incremental target list DOM reconciliation
 function updateTargetList() {
     const listContainer = document.getElementById('target-list');
     
@@ -868,15 +886,8 @@ function updateTargetList() {
     const filteredAc = Object.values(activeAircraft).filter(ac => {
         if (!ac.sweptOnce) return false; // Hide unswept targets from list
         if (activeFilter === 'mil') return ac.mil;
-        if (activeFilter === 'commercial') {
-            // Heuristic for commercial flights: Not military, cruising at higher altitudes
-            // or has commercial category A3/A4/A5
-            return !ac.mil && (ac.alt > 15000 || ac.speed > 240);
-        }
-        if (activeFilter === 'ga') {
-            // General Aviation: Not military, lower speeds/altitudes
-            return !ac.mil && ac.alt <= 15000 && ac.speed <= 240;
-        }
+        if (activeFilter === 'commercial') return isCommercialAircraft(ac);
+        if (activeFilter === 'ga') return !ac.mil && !isCommercialAircraft(ac);
         return true; // 'all'
     });
 
@@ -969,8 +980,8 @@ function updateMarkerVisibility(hex) {
 
     let visible = true;
     if (activeFilter === 'mil' && !ac.mil) visible = false;
-    else if (activeFilter === 'commercial' && (ac.mil || (ac.alt <= 15000 && ac.speed <= 240))) visible = false;
-    else if (activeFilter === 'ga' && (ac.mil || ac.alt > 15000 || ac.speed > 240)) visible = false;
+    else if (activeFilter === 'commercial' && !isCommercialAircraft(ac)) visible = false;
+    else if (activeFilter === 'ga' && (ac.mil || isCommercialAircraft(ac))) visible = false;
 
     // Viewport bounds pruning check
     if (visible && !isAircraftInViewport(ac)) {
