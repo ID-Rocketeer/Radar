@@ -328,11 +328,13 @@ function initControls() {
 
 
 
-// Dynamically adjust map's minZoom level to ensure the 250 NM range ring always fills the bezel viewport
+let initialZoomSet = false;
+
+// Dynamically adjust map's minZoom level to ensure the range ring always fills the visible bezel viewport
 function updateMinZoom() {
     if (!map) return;
     
-    const rangeMeters = RANGE_NM * 1852; // 250 NM in meters
+    const rangeMeters = RANGE_NM * 1852;
     const centerLatLng = L.latLng(HOME_LAT, HOME_LON);
     const R = 6378137;
     const dLon = rangeMeters / (R * Math.cos(Math.PI * HOME_LAT / 180));
@@ -352,18 +354,21 @@ function updateMinZoom() {
             bezelDiameter = Math.min(window.innerHeight * 0.96, (window.innerWidth - 380) * 0.96);
         }
         
-        // Calculate the exact zoom level where the 250 NM circle diameter equals the bezel diameter
-        const requiredRatio = bezelDiameter / (2 * radiusPx);
+        // Scale the target diameter to 95% (0.95) to match the visible inner screen boundary
+        // just inside the 14px thick plastic bezel rim (cutout is at 0.475 radius)
+        const requiredRatio = (bezelDiameter * 0.95) / (2 * radiusPx);
         const targetZoomFloat = currentZoom + Math.log2(requiredRatio);
         
-        // Use the exact fractional target zoom to lock the minimum zoom exactly at the bezel border
-        // Add a tiny safety offset (e.g. +0.01) to ensure we completely cover the border with zero pixel gap
-        const minZoomVal = targetZoomFloat + 0.01;
+        // Use the exact fractional target zoom to lock the minimum zoom at the inner visible bezel border
+        const minZoomVal = targetZoomFloat;
         
         map.setMinZoom(minZoomVal);
         
-        // Force the map to the minimum zoom level if it is currently zoomed out too far
-        if (map.getZoom() < minZoomVal) {
+        // Always force initial load to start at the maximum configured range zoom level
+        if (!initialZoomSet) {
+            map.setZoom(minZoomVal);
+            initialZoomSet = true;
+        } else if (map.getZoom() < minZoomVal) {
             map.setZoom(minZoomVal);
         }
     } catch (e) {
@@ -399,7 +404,7 @@ function updateSweepSize() {
     }
 }
 
-// Dynamically calculate and report the physical range currently displayed at the bezel edge
+// Dynamically calculate and report the physical range currently displayed at the visible bezel edge
 function updateDisplayedRange() {
     if (!map) return;
     const rangeEl = document.getElementById('val-range');
@@ -416,10 +421,12 @@ function updateDisplayedRange() {
         } else {
             bezelDiameter = Math.min(window.innerHeight * 0.96, (window.innerWidth - 380) * 0.96);
         }
-        const bezelRadiusPx = bezelDiameter / 2;
         
-        // Get LatLng at the edge of the bezel
-        const edgeLatLng = map.layerPointToLatLng([centerPoint.x + bezelRadiusPx, centerPoint.y]);
+        // The visible screen radius is 47.5% (0.475) of the bezel diameter
+        const visibleRadiusPx = bezelDiameter * 0.475;
+        
+        // Get LatLng at the edge of the visible scope rim
+        const edgeLatLng = map.layerPointToLatLng([centerPoint.x + visibleRadiusPx, centerPoint.y]);
         
         // Calculate distance in NM
         const displayedRange = calcDistance(HOME_LAT, HOME_LON, edgeLatLng.lat, edgeLatLng.lng);
@@ -1087,7 +1094,7 @@ function resetTelemetryDisplay() {
 
 // Haversine formula to compute distance in Nautical Miles
 function calcDistance(lat1, lon1, lat2, lon2) {
-    const R = 3440.065; // Earth radius in NM
+    const R = 3443.918; // Earth radius in NM (matching Leaflet's WGS84 radius of 6378137 meters)
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
