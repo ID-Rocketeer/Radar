@@ -469,6 +469,9 @@ body {
     contain: layout paint; /* Isolate layout and paint from parent reflows */
     transform-style: preserve-3d;
     backface-visibility: hidden;
+    
+    /* Dynamic scope size variable (94% of remaining height/width to maximize screen space while keeping base plate margin) */
+    --scope-size: min(94dvh, calc(0.94 * (100vw - 380px)));
 }
 
 #map {
@@ -776,16 +779,16 @@ body {
     background-attachment: fixed;
         
     /* Circular mask cutout: center is transparent, corners are solid brushed aluminum.
-       Tuned to min(88dvh, calc(0.88 * (100vw - 380px))) * 0.5 - 34px to overlap under the 32px rim border */
+       Tuned to overlap under the 32px rim border using the dynamic scope size variable */
     -webkit-mask-image: radial-gradient(
         circle at center,
-        transparent calc(min(88dvh, calc(0.88 * (100vw - 380px))) * 0.5 - 34px),
-        black calc(min(88dvh, calc(0.88 * (100vw - 380px))) * 0.5 - 33px)
+        transparent calc(var(--scope-size) * 0.5 - 34px),
+        black calc(var(--scope-size) * 0.5 - 33px)
     );
     mask-image: radial-gradient(
         circle at center,
-        transparent calc(min(88dvh, calc(0.88 * (100vw - 380px))) * 0.5 - 34px),
-        black calc(min(88dvh, calc(0.88 * (100vw - 380px))) * 0.5 - 33px)
+        transparent calc(var(--scope-size) * 0.5 - 34px),
+        black calc(var(--scope-size) * 0.5 - 33px)
     );
 }
 
@@ -802,24 +805,24 @@ body {
     box-sizing: border-box;
 }
 
-/* Sizing for the outer rim (D) */
+/* Sizing for the outer rim (D) using the dynamic scope size variable */
 .radar-scope-rim {
-    width: min(88dvh, calc(0.88 * (100vw - 380px)));
-    height: min(88dvh, calc(0.88 * (100vw - 380px)));
+    width: var(--scope-size);
+    height: var(--scope-size);
 }
 
 /* Sizing for the glass overlays (D - 64px) to sit strictly inside the 32px rim border */
 .radar-glass-edge, 
 .radar-glass-glare {
-    width: calc(min(88dvh, calc(0.88 * (100vw - 380px))) - 64px);
-    height: calc(min(88dvh, calc(0.88 * (100vw - 380px))) - 64px);
+    width: calc(var(--scope-size) - 64px);
+    height: calc(var(--scope-size) - 64px);
 }
 
 /* Container for radar scope mounting screws (raised to z-index 2200 to prevent overlays from clipping them)
    Sized to D - 32px so the screws are centered perfectly in the 32px wide rim border */
 .radar-scope-screws-container {
-    width: calc(min(88dvh, calc(0.88 * (100vw - 380px))) - 32px);
-    height: calc(min(88dvh, calc(0.88 * (100vw - 380px))) - 32px);
+    width: calc(var(--scope-size) - 32px);
+    height: calc(var(--scope-size) - 32px);
     position: absolute;
     top: 50%;
     left: 50%;
@@ -942,36 +945,9 @@ body {
         position: relative;
     }
     
-    /* Center scope overlay components for mobile */
-    .radar-scope-rim {
-        width: min(50dvh, 86vw);
-        height: min(50dvh, 86vw);
-    }
-    
-    .radar-glass-edge, 
-    .radar-glass-glare {
-        width: calc(min(50dvh, 86vw) - 64px);
-        height: calc(min(50dvh, 86vw) - 64px);
-    }
-    
-    /* Screws container for mobile */
-    .radar-scope-screws-container {
-        width: calc(min(50dvh, 86vw) - 32px);
-        height: calc(min(50dvh, 86vw) - 32px);
-    }
-    
-    /* Bezel mask cutout for mobile */
-    .radar-bezel {
-        -webkit-mask-image: radial-gradient(
-            circle at center,
-            transparent calc(min(50dvh, 86vw) * 0.5 - 34px),
-            black calc(min(50dvh, 86vw) * 0.5 - 33px)
-        );
-        mask-image: radial-gradient(
-            circle at center,
-            transparent calc(min(50dvh, 86vw) * 0.5 - 34px),
-            black calc(min(50dvh, 86vw) * 0.5 - 33px)
-        );
+    /* Override scope size for mobile to maximize screen area (min(54dvh, 92vw)) */
+    .radar-viewport {
+        --scope-size: min(54dvh, 92vw);
     }
 }
 
