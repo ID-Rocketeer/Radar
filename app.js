@@ -33,7 +33,7 @@ if (isNaN(RANGE_NM)) {
 }
 
 const SWEEP_DURATION_MS = 10000; // 10s rotation cycle
-const API_POLL_INTERVAL_MS = 10000; // Poll API every 10s
+const API_POLL_INTERVAL_MS = 5000; // Poll API every 5s
 
 // Map and tracking states
 let map;
@@ -45,6 +45,7 @@ let trailsEnabled = true;
 let targetListDomMap = {}; // Maps hex -> DOM element for target list reconciliation
 let sweepEl = null; // Global reference to the sweep line DOM element
 let sweepActive = true; // Flag to halt/resume sweep line rotation on connection errors
+let pollIntervalId = null; // ID to track active polling interval
 
 // SVG silhouettes for different aircraft classifications (optimized for 24x24 viewBox)
 const AIRCRAFT_ICONS = {
@@ -133,6 +134,19 @@ function updateUIConfigurationValues() {
     if (rangeEl) rangeEl.innerText = `${RANGE_NM} NM`;
 }
 
+function startPolling() {
+    if (pollIntervalId) return; // Already polling
+    pollFlightData();
+    pollIntervalId = setInterval(pollFlightData, API_POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+    if (pollIntervalId) {
+        clearInterval(pollIntervalId);
+        pollIntervalId = null;
+    }
+}
+
 function initializeRadarSystem() {
     initMap();
     initControls();
@@ -146,8 +160,21 @@ function initializeRadarSystem() {
         updateDisplayedRange();
     }, 100);
 
-    pollFlightData();
-    setInterval(pollFlightData, API_POLL_INTERVAL_MS);
+    // Start fetching data
+    startPolling();
+
+    // Listen for tab visibility changes to pause/resume polling
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopPolling();
+            const statusText = document.querySelector('.system-status .status-text');
+            const indicator = document.querySelector('.status-indicator');
+            if (statusText) statusText.innerText = "SYS_STATUS: STANDBY";
+            if (indicator) indicator.classList.remove('active');
+        } else {
+            startPolling();
+        }
+    });
 }
 
 if (document.readyState === 'loading') {
