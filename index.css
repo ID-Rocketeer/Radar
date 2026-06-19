@@ -894,9 +894,7 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(1, 6, 2, 0.8); /* Dark green blur plate */
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    background: rgba(1, 12, 3, 0.97); /* Dark green premium solid overlay to prevent repaint flashes */
     display: none; /* Managed by JS display transition */
     align-items: center;
     justify-content: center;

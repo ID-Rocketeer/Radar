@@ -428,13 +428,17 @@ function updateMinZoom() {
         const minZoomVal = targetZoomFloat;
         
         // Check if we are currently zoomed all the way out
-        const isAtMinZoom = Math.abs(currentZoom - map.getMinZoom()) < 0.05;
+        const currentMinZoom = map.getMinZoom();
+        const isAtMinZoom = Math.abs(currentZoom - currentMinZoom) < 0.05;
         
-        map.setMinZoom(minZoomVal);
+        // Only update minZoom if it has changed by more than 0.001
+        if (Math.abs(currentMinZoom - minZoomVal) > 0.001) {
+            map.setMinZoom(minZoomVal);
+        }
         
         // Always force initial load to start at the maximum configured range zoom level (disable transition animation to snap instantly)
         // If the window is resized or layout reflows while at minZoom, adjust the zoom to the new minZoomVal automatically
-        if (!initialZoomSet || isAtMinZoom || currentZoom < minZoomVal) {
+        if (!initialZoomSet || (isAtMinZoom && Math.abs(currentZoom - minZoomVal) > 0.001) || currentZoom < minZoomVal) {
             map.setZoom(minZoomVal, { animate: false });
             initialZoomSet = true;
         }
@@ -843,9 +847,6 @@ function processAPIResponse(data) {
     // Refresh sidebar displays
     updateTargetList();
 
-    // Ensure map zoom limits and sweep size are correct now that map is fully loaded
-    updateMinZoom();
-    updateSweepSize();
 }
 
 /* ==========================================================================
