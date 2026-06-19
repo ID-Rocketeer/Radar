@@ -1101,13 +1101,16 @@ body {
     background: linear-gradient(to bottom, #524f49 0%, #3e3b36 100%);
     color: #0f1110; /* Dark charcoal text */
     
-    /* Toned-down embossed letter-carving shadow highlight */
+    /* Embossed/recessed letter-carving shadow highlight */
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.12);
     
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    
+    -webkit-tap-highlight-color: transparent; /* Remove mobile tap highlight flash */
+    -webkit-touch-callout: none; /* Disable iOS touch link callout menu */
     
     /* Muted keycap shadows: faint top sheen highlight and dark dirt vignettes */
     box-shadow: 

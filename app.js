@@ -246,7 +246,7 @@ function initMap() {
     // Keep map center locked on Home coordinates, zoom centered on Home
     map = L.map('map', {
         zoomControl: false,
-        attributionControl: true,
+        attributionControl: false,
         doubleClickZoom: false,
         boxZoom: false,
         keyboard: false,
@@ -316,6 +316,11 @@ function initMap() {
    UI CONTROLS & LISTENERS
    ========================================================================== */
 function initControls() {
+    // Prevent long-press context menus on the zoom controls (Download/Share/Print)
+    const zoomCtrl = document.querySelector('.radar-zoom-control');
+    if (zoomCtrl) {
+        zoomCtrl.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
 
 
     // Flight Trails Toggle Button
