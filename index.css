@@ -1618,13 +1618,13 @@ body {
     height: 1.7px; /* Scaled slot height */
 }
 
-/* Sidebar Screws specific centering coordinates (pulled in to center perfectly in 30px bezel) */
-.sidebar-screw.tl { top: 15px; left: 15px; }
-.sidebar-screw.tr { top: 15px; left: calc(100% - 15px); }
-.sidebar-screw.ml { top: 50%; left: 15px; }
-.sidebar-screw.mr { top: 50%; left: calc(100% - 15px); }
-.sidebar-screw.bl { top: calc(100% - 15px); left: 15px; }
-.sidebar-screw.br { top: calc(100% - 15px); left: calc(100% - 15px); }
+/* Sidebar Screws specific centering coordinates (pulled in to center perfectly in the flat 30px bezel, excluding the 6px outer raised rim) */
+.sidebar-screw.tl { top: 18px; left: 18px; }
+.sidebar-screw.tr { top: 18px; left: calc(100% - 18px); }
+.sidebar-screw.ml { top: 50%; left: 18px; }
+.sidebar-screw.mr { top: 50%; left: calc(100% - 18px); }
+.sidebar-screw.bl { top: calc(100% - 18px); left: 18px; }
+.sidebar-screw.br { top: calc(100% - 18px); left: calc(100% - 18px); }
 
 /* Suppress OpenStreetMap label in landscape mode on phones to save vertical space */
 @media (max-height: 480px) and (orientation: landscape) {
