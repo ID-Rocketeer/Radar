@@ -887,8 +887,8 @@ function updateTargetList() {
         return a.dist - b.dist;
     });
 
-    // Slice to top 100 closest targets for layout performance
-    const topAc = filteredAc.slice(0, 100);
+    // List all targets in range (removed slice cap)
+    const topAc = filteredAc;
     document.getElementById('target-count').innerText = filteredAc.length;
 
     if (topAc.length === 0) {
