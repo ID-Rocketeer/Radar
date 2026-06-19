@@ -316,11 +316,9 @@ function initMap() {
    UI CONTROLS & LISTENERS
    ========================================================================== */
 function initControls() {
-    // Prevent long-press context menus on the zoom controls (Download/Share/Print)
-    const zoomCtrl = document.querySelector('.radar-zoom-control');
-    if (zoomCtrl) {
-        zoomCtrl.addEventListener('contextmenu', (e) => e.preventDefault());
-    }
+    // Prevent long-press context menus across the entire application (bezel, sidebar, map, etc.)
+    // We use the capturing phase (true) to intercept the event before Leaflet blocks propagation.
+    window.addEventListener('contextmenu', (e) => e.preventDefault(), true);
 
 
     // Flight Trails Toggle Button

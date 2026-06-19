@@ -24,7 +24,13 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    user-select: none;
+    user-select: none !important;
+    -webkit-user-select: none !important; /* Suppress WebKit text selection */
+    -webkit-touch-callout: none !important; /* Disable default touch callout menu globally */
+}
+
+img {
+    -webkit-user-drag: none;
 }
 
 body, button, input, select, textarea {
@@ -821,8 +827,13 @@ body {
     }
     
     .target-list {
-        height: auto !important;
-        overflow: visible !important;
+        height: 160px !important; /* Constrain height to prevent map bouncing */
+        overflow-y: auto !important;
+    }
+    
+    .telemetry-display {
+        height: 180px !important; /* Constrain height to prevent map bouncing on selection */
+        overflow-y: auto !important;
     }
     
     .radar-viewport {
@@ -1136,4 +1147,135 @@ body {
         inset 0 2px 4px rgba(0, 0, 0, 0.4),
         inset 0 0 3px rgba(40, 32, 24, 0.5);
     transform: translateY(1px); /* Physically sink the keycap */
+}
+
+/* ==========================================================================
+   CRUSTY OLD PAPER LICENSE LABEL (OpenStreetMap Attribution)
+   ========================================================================== */
+.crusty-paper-label {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 2100;
+    text-decoration: none;
+    pointer-events: auto;
+    display: inline-block;
+    
+    /* Muted, dirty, yellow-brown aged parchment (crustier, not too bright) */
+    background: #beae85;
+    background-image: 
+        radial-gradient(circle at 10% 25%, rgba(55, 38, 16, 0.45) 0%, transparent 35%),   /* Dark oil spot */
+        radial-gradient(circle at 90% 80%, rgba(65, 45, 20, 0.35) 0%, transparent 40%),   /* Grime stain */
+        radial-gradient(circle at 45% 40%, rgba(70, 50, 25, 0.25) 0%, transparent 45%),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.22) 100%);
+    
+    /* Crooked paper orientation */
+    transform: rotate(-1.5deg);
+    
+    /* Margin of paper outside the thin line */
+    padding: 4px;
+    
+    /* Physical sticker drop shadow */
+    box-shadow: 
+        1px 2px 4px rgba(0, 0, 0, 0.45),
+        inset 0 0 12px rgba(0, 0, 0, 0.05);
+        
+    /* Organic torn paper edges via SVG displacement filter */
+    filter: url(#paper-tear);
+    
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+
+/* Curled corner shadow effects under the bottom edges */
+.crusty-paper-label::before,
+.crusty-paper-label::after {
+    content: '';
+    position: absolute;
+    background: transparent;
+    width: 42%;
+    height: 8px;
+    bottom: 6px;
+    z-index: -1;
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.75);
+    transition: all 0.15s ease;
+}
+.crusty-paper-label::before {
+    left: 4px;
+    transform: rotate(-4deg);
+}
+.crusty-paper-label::after {
+    right: 4px;
+    transform: rotate(4deg);
+}
+
+/* Hover: Slightly lift sticker and brighten slightly, keeping textures */
+.crusty-paper-label:hover {
+    background-color: #c9b990;
+    transform: rotate(-1.5deg) scale(1.02);
+    box-shadow: 
+        2px 4px 8px rgba(0, 0, 0, 0.55),
+        inset 0 0 15px rgba(0, 0, 0, 0.03);
+}
+
+.crusty-paper-label:hover::before {
+    box-shadow: 0 10px 14px rgba(0, 0, 0, 0.85);
+}
+.crusty-paper-label:hover::after {
+    box-shadow: 0 10px 14px rgba(0, 0, 0, 0.85);
+}
+
+/* Active: Pressed physically down */
+.crusty-paper-label:active {
+    transform: rotate(-1.5deg) scale(0.98) translateY(1px);
+    box-shadow: 
+        1px 1px 2px rgba(0, 0, 0, 0.4),
+        inset 0 0 10px rgba(0, 0, 0, 0.06);
+}
+
+.crusty-paper-label:active::before {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.65);
+}
+.crusty-paper-label:active::after {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.65);
+}
+
+/* Thin border wrapper (moved inward from paper edges) */
+.crusty-paper-label-border-wrapper {
+    border: 1px solid #1c1a16; /* One thin line inside */
+    padding: 1px; /* Separation gap exactly equal to the 1px thin line width */
+    display: block;
+}
+
+/* Thick inner border container */
+.crusty-paper-label-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    
+    /* A second thicker line inside */
+    border: 3.5px solid #1c1a16;
+}
+
+.crusty-paper-label .label-title {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.95rem;
+    font-weight: 900;
+    color: #1c1a16;
+    margin-bottom: 4px;
+    text-shadow: none; /* Reset cathode glow */
+    line-height: 1.1;
+    text-align: center;
+}
+
+.crusty-paper-label .label-subtitle {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.72rem;
+    font-weight: 900;
+    color: #1c1a16;
+    text-shadow: none; /* Reset cathode glow */
+    line-height: 1.1;
+    text-align: center;
 }
