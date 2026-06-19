@@ -201,6 +201,7 @@ body {
 .sidebar-header {
     border-bottom: 1px solid rgba(0, 255, 85, 0.15);
     padding-bottom: 15px;
+    padding-right: 32px; /* Prevent title text from overlapping the absolutely positioned help button */
     margin-bottom: 0;
     position: relative; /* Anchor for absolute elements like the help button */
 }
