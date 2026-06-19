@@ -404,6 +404,8 @@ body {
 .leaflet-tile-pane {
     filter: brightness(1.6) contrast(1.2) sepia(100%) hue-rotate(85deg) saturate(6);
     opacity: 0.45; /* Soft, visible blend that doesn't compete with active flight markers */
+    transform: translateZ(0); /* Force GPU compositing for CSS filters to prevent repaint flashes */
+    will-change: transform;
 }
 
 /* Adjust map overlay elements back to original if needed, but in our case, 

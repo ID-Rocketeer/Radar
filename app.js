@@ -555,15 +555,15 @@ function startRadarSweep() {
 
         // Calculate sweep increment based on delta time
         const deltaAngle = (clampedDt / SWEEP_DURATION_MS) * 360;
-        const nextAngle = (currentAngle + deltaAngle) % 360;
+        const nextAngle = currentAngle + deltaAngle; // Grow continuously to prevent browser compositor matrix resets
 
         // Update sweep rotation visually
         if (sweepEl) {
             sweepEl.style.transform = `translateZ(0) rotate(${nextAngle}deg)`;
         }
 
-        // Check which aircraft are passed over by the radar beam during this frame
-        checkSweptAircraft(currentAngle, nextAngle);
+        // Check which aircraft are passed over by the radar beam during this frame (using modulo angles)
+        checkSweptAircraft(currentAngle % 360, nextAngle % 360);
 
         currentAngle = nextAngle;
         requestAnimationFrame(animate);
