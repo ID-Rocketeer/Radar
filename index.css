@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2026 Steven P. Collins
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 /* ==========================================================================
    DESIGN SYSTEM & VARIABLES
    ========================================================================== */
@@ -940,6 +957,7 @@ body {
     padding: 20px !important;
     box-shadow: 0 4px 30px rgba(0, 255, 85, 0.15) !important;
     animation: modal-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    flex-grow: 0; /* Block horizontal stretching from sidebar-glass-panel flex-grow: 1 */
 }
 
 @keyframes modal-slide-in {
@@ -1156,8 +1174,7 @@ body {
    ========================================================================== */
 .crusty-paper-label {
     position: relative; /* Anchor for curled shadow pseudo-elements */
-    align-self: center;
-    margin: 5px auto 5px auto;
+    margin: 0;
     flex-shrink: 0;
     z-index: 100;
     text-decoration: none;
@@ -1280,5 +1297,137 @@ body {
     color: #1c1a16;
     text-shadow: none; /* Reset cathode glow */
     line-height: 1.1;
+    text-align: center;
+}
+
+/* ==========================================================================
+   CONSOLE STICKERS CONTAINERS (Layout wrappers)
+   ========================================================================== */
+.sidebar-top-label-container,
+.sidebar-bottom-label-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+/* ==========================================================================
+   STEVEN P. COLLINS COPYRIGHT & GPLv3 LABEL (Homemade Typewriter Sticker)
+   ========================================================================== */
+.gpl-paper-label {
+    position: relative; /* Anchor for curled shadow pseudo-elements */
+    margin: 0;
+    flex-shrink: 0;
+    z-index: 100;
+    text-decoration: none;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    
+    /* Lighter, newer aged cream-grey cardstock (applied later, less weathered) */
+    background: #c5c0ac;
+    background-image: 
+        radial-gradient(circle at 80% 20%, rgba(45, 30, 15, 0.28) 0%, transparent 40%),   /* Soft coffee spot */
+        radial-gradient(circle at 15% 75%, rgba(55, 40, 20, 0.22) 0%, transparent 35%),   /* Light smudge */
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.18) 100%);
+    
+    /* Hand-applied crooked orientation (opposite to OSM sticker) */
+    transform: rotate(2.5deg);
+    
+    /* Borderless look to simulate typed sheet fragment torn off */
+    border: none;
+    padding: 8px 16px;
+    
+    /* Physical sticker drop shadow */
+    box-shadow: 
+        1px 2px 4px rgba(0, 0, 0, 0.45),
+        inset 0 0 10px rgba(0, 0, 0, 0.05);
+        
+    /* Organic torn paper edges via SVG displacement filter */
+    filter: url(#paper-tear);
+    
+    /* Dimmed in low light environment, brightens on hover */
+    opacity: 0.55;
+    transition: all 0.25s ease;
+    cursor: pointer;
+}
+
+/* Curled corner shadow effects under the bottom edges */
+.gpl-paper-label::before,
+.gpl-paper-label::after {
+    content: '';
+    position: absolute;
+    background: transparent;
+    width: 42%;
+    height: 8px;
+    bottom: 6px;
+    z-index: -1;
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.75);
+    transition: all 0.25s ease;
+}
+.gpl-paper-label::before {
+    left: 4px;
+    transform: rotate(-4deg);
+}
+.gpl-paper-label::after {
+    right: 4px;
+    transform: rotate(4deg);
+}
+
+/* Hover: Slightly lift sticker and brighten to full visibility, keeping textures */
+.gpl-paper-label:hover {
+    background-color: #d2cdba;
+    transform: rotate(2.5deg) scale(1.02);
+    box-shadow: 
+        2px 4px 8px rgba(0, 0, 0, 0.55),
+        inset 0 0 12px rgba(0, 0, 0, 0.03);
+    opacity: 0.95;
+}
+
+.gpl-paper-label:hover::before {
+    box-shadow: 0 10px 14px rgba(0, 0, 0, 0.85);
+}
+.gpl-paper-label:hover::after {
+    box-shadow: 0 10px 14px rgba(0, 0, 0, 0.85);
+}
+
+/* Active: Pressed physically down */
+.gpl-paper-label:active {
+    transform: rotate(2.5deg) scale(0.98) translateY(1px);
+    box-shadow: 
+        1px 1px 2px rgba(0, 0, 0, 0.4),
+        inset 0 0 8px rgba(0, 0, 0, 0.05);
+    opacity: 0.95;
+}
+
+.gpl-paper-label:active::before {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.65);
+}
+.gpl-paper-label:active::after {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.65);
+}
+
+.gpl-paper-label .gpl-label-title {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.82rem;
+    font-weight: bold;
+    color: #1a1815; /* Dark typewriter ink */
+    margin-bottom: 2px;
+    text-shadow: none; /* Reset cathode glow */
+    line-height: 1.2;
+    text-align: center;
+}
+
+.gpl-paper-label .gpl-label-subtitle {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.70rem;
+    font-weight: bold;
+    color: #1a1815; /* Dark typewriter ink */
+    text-shadow: none; /* Reset cathode glow */
+    line-height: 1.2;
     text-align: center;
 }
