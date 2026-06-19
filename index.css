@@ -998,6 +998,7 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     background: rgba(1, 12, 3, 0.97); /* Dark green premium solid overlay to prevent repaint flashes */
     display: none; /* Managed by JS display transition */
     align-items: center;
@@ -1018,9 +1019,10 @@ body {
 .modal-content {
     width: min(520px, 90vw);
     max-height: 80vh;
+    max-height: 75dvh; /* Shrink slightly to fit comfortably within viewport heights */
     display: flex;
     flex-direction: column;
-    padding: 20px !important;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom)) 20px !important; /* Push contents above the Safari tab bar and iOS home indicator */
     box-shadow: 0 4px 30px rgba(0, 255, 85, 0.15) !important;
     animation: modal-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     flex-grow: 0; /* Block horizontal stretching from sidebar-glass-panel flex-grow: 1 */
@@ -1076,6 +1078,7 @@ body {
     color: var(--phosphor-dim-text);
     line-height: 1.5;
     padding-right: 5px;
+    padding-bottom: 20px; /* Symmetrical padding at the bottom of text content */
 }
 
 .modal-body h3 {
