@@ -363,6 +363,11 @@ body {
     margin-top: 5px;
 }
 
+.panel-controls.vertical {
+    flex-direction: column;
+    gap: 6px;
+}
+
 /* Buttons Styling */
 .retro-btn {
     flex: 1;
