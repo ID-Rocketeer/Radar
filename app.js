@@ -167,8 +167,44 @@ function getAircraftIconType(rawAc) {
         return 'fighter';
     }
 
-    // 3. Light Aircraft / Propeller General Aviation (ICAO description ends with 'P' for piston-engines, e.g. L1P)
-    if (category === 'A1' || desc.endsWith('P') || desc.includes('PISTON') || ['C172', 'C152', 'C182', 'PA28', 'PA44', 'SR22', 'SR20', 'DA40', 'DA42', 'BE36', 'BE58', 'M20', 'RV6', 'RV7', 'RV8', 'RV10'].includes(typeCode)) {
+    // 3. Light Aircraft / Propeller General Aviation / Turboprops / Warbirds
+    const isPropeller = (
+        category === 'A1' || 
+        desc.includes('PISTON') || 
+        desc.includes('PROP') || 
+        desc.includes('PROPELLER') || 
+        desc.includes('TURBOPROP') || 
+        desc.includes('BIPLANE') || 
+        desc.includes('WARBIRD') || 
+        desc.includes('MITCHELL') || 
+        desc.includes('MUSTANG') || 
+        desc.includes('SPITFIRE') || 
+        desc.includes('TEXAN') || 
+        desc.includes('STEERMAN') || 
+        desc.includes('HARVARD') || 
+        desc.includes('CESSNA') || 
+        desc.includes('PIPER') || 
+        desc.includes('BEECHCRAFT') || 
+        desc.includes('BONANZA') || 
+        desc.includes('BARON') || 
+        desc.includes('KING AIR') || 
+        desc.includes('CARAVAN') || 
+        desc.includes('CIRRUS') || 
+        desc.includes('DIAMOND') || 
+        desc.includes('MOONEY') || 
+        desc.includes('PILATUS') || 
+        desc.includes('DOUGLAS DC-3') || 
+        desc.includes('DOUGLAS C-47') || 
+        desc.includes('FLYING FORTRESS') || 
+        desc.includes('SUPERFORTRESS') || 
+        desc.includes('GLIDER') || 
+        desc.includes('SAILPLANE') || 
+        // Match specific common propeller ICAO type designators
+        ['B25', 'B17', 'B29', 'P51', 'P47', 'P38', 'C172', 'C152', 'C182', 'C206', 'C208', 'C210', 'C310', 'PA28', 'PA32', 'PA34', 'PA44', 'PA46', 'BE33', 'BE35', 'BE36', 'BE55', 'BE58', 'BE9L', 'BE20', 'BE30', 'B350', 'SR20', 'SR22', 'DA40', 'DA42', 'DA62', 'M20', 'PC12', 'DH8A', 'DH8B', 'DH8C', 'DH8D', 'AT43', 'AT45', 'AT72', 'AT75', 'C47', 'DC3', 'DC4', 'DC6', 'DC7', 'T6', 'AN2', 'AN24', 'AN26', 'A29', 'T34'].includes(typeCode) ||
+        // Van's RV kitplanes
+        typeCode.match(/^RV\d+$/)
+    );
+    if (isPropeller) {
         return 'light';
     }
 
