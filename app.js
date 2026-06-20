@@ -686,14 +686,14 @@ function updateSweepSize() {
 function getDisplayedRange() {
     if (!map) return RANGE_NM;
     try {
-        const centerLatLng = L.latLng(HOME_LAT, HOME_LON);
+        const centerLatLng = map.getCenter();
         const centerPoint = map.latLngToLayerPoint(centerLatLng);
         const bezelDiameter = getBezelDiameter();
         const visibleRadiusPx = bezelDiameter * 0.47;
         const edgeLatLng = map.layerPointToLatLng([centerPoint.x + visibleRadiusPx, centerPoint.y]);
-        let displayedRange = calcDistance(HOME_LAT, HOME_LON, edgeLatLng.lat, edgeLatLng.lng);
+        let displayedRange = calcDistance(centerLatLng.lat, centerLatLng.lng, edgeLatLng.lat, edgeLatLng.lng);
         
-        if (Math.abs(map.getZoom() - map.getMinZoom()) < 0.05) {
+        if (!isSelectionMode && Math.abs(map.getZoom() - map.getMinZoom()) < 0.05) {
             displayedRange = RANGE_NM;
         }
         return displayedRange;
@@ -704,11 +704,14 @@ function getDisplayedRange() {
 
 // Dynamically calculate and report the physical range currently displayed at the visible bezel edge
 function updateDisplayedRange() {
+    if (isProgrammaticChange) return;
     const rangeEl = document.getElementById('val-range');
     if (!rangeEl) return;
     const displayedRange = getDisplayedRange();
     if (rangeEl.tagName === 'INPUT') {
-        rangeEl.value = displayedRange.toFixed(1);
+        if (document.activeElement !== rangeEl) {
+            rangeEl.value = displayedRange.toFixed(1);
+        }
     } else {
         rangeEl.innerText = `${displayedRange.toFixed(1)} NM`;
     }
@@ -1582,9 +1585,17 @@ function initLocationSelection() {
         map.on('move drag zoom', handleSelectionMapChange);
 
         // Safely clear programmatic change flag after Leaflet finishes event loop updates
-        setTimeout(() => {
+        let programmaticTimer = null;
+        const clearProgrammatic = () => {
             isProgrammaticChange = false;
-        }, 150);
+            map.off('moveend zoomend', clearProgrammatic);
+            if (programmaticTimer) {
+                clearTimeout(programmaticTimer);
+                programmaticTimer = null;
+            }
+        };
+        map.on('moveend zoomend', clearProgrammatic);
+        programmaticTimer = setTimeout(clearProgrammatic, 250);
     };
 
     if (latInput) latInput.addEventListener('change', handleManualConfigChange);
@@ -1671,9 +1682,17 @@ function enterSelectionMode() {
     // Bind Leaflet map drag/zoom events
     map.on('move drag zoom', handleSelectionMapChange);
 
-    setTimeout(() => {
+    let programmaticTimer = null;
+    const clearProgrammatic = () => {
         isProgrammaticChange = false;
-    }, 150);
+        map.off('moveend zoomend', clearProgrammatic);
+        if (programmaticTimer) {
+            clearTimeout(programmaticTimer);
+            programmaticTimer = null;
+        }
+    };
+    map.on('moveend zoomend', clearProgrammatic);
+    programmaticTimer = setTimeout(clearProgrammatic, 250);
 }
 
 function handleSelectionMapChange() {

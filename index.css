@@ -959,16 +959,22 @@ body {
    MOBILE RESPONSIVENESS & PORTRAIT TOUCH LAYOUT
    ========================================================================== */
 @media (max-width: 768px) {
+    body {
+        overflow: auto !important;
+        height: auto !important;
+    }
+
     .radar-container {
         flex-direction: column;
-        overflow-y: auto;
-        height: 100vh;
-        height: 100dvh;
+        overflow: visible !important;
+        height: auto !important;
     }
     
     .sidebar-column {
         width: 100%;
         height: auto;
+        max-height: none; /* Remove desktop height restriction */
+        flex-shrink: 0; /* Prevent flexbox from squishing the sidebar height */
         padding: 10px;
         box-sizing: border-box;
     }
