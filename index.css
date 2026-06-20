@@ -156,6 +156,7 @@ body {
 .sidebar-column {
     width: 380px;
     height: 100%;
+    max-height: 100dvh; /* Constrain sidebar column height strictly to viewport */
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -171,6 +172,7 @@ body {
 .radar-sidebar {
     width: calc(100% - 20px); /* 10px margins left/right within sidebar-column */
     flex-grow: 1; /* Automatically fill remaining vertical space */
+    min-height: 0; /* Allow the sidebar bezel to shrink if vertical space is tight */
     margin: 10px 10px; /* Vertical gap between chassis and base plate stickers */
     position: relative; /* Anchor for mounting screws and bezel overlays */
     display: flex;
@@ -372,6 +374,9 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
     border-radius: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .retro-btn:hover {
@@ -426,7 +431,7 @@ body {
 
 .list-headers {
     display: grid;
-    grid-template-columns: 80px 70px 60px 1fr;
+    grid-template-columns: 70px 60px 50px 1fr; /* Compact column widths to buy back space for distance */
     font-size: 0.75rem;
     color: var(--phosphor-dim-text);
     padding: 0 5px 3px 5px;
@@ -451,7 +456,7 @@ body {
 
 .target-item {
     display: grid;
-    grid-template-columns: 80px 70px 60px 1fr;
+    grid-template-columns: 70px 60px 50px 1fr; /* Matches header columns to align data precisely */
     font-size: 0.85rem;
     padding: 6px 5px;
     border-bottom: 1px solid rgba(0, 255, 85, 0.05);
