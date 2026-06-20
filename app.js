@@ -274,8 +274,8 @@ function initMap() {
         zoomDelta: 0.5 // Set zoom buttons step size
     }).setView([HOME_LAT, HOME_LON], 8); // Start at zoom 8 (which is safe and covers bezel)
 
-    // Create isolated pane for the sweep line to prevent repainting the marker pane
-    map.createPane('sweepPane');
+    // Create isolated pane for the sweep line as a child of mapPane to ensure it translates and scales in sync
+    map.createPane('sweepPane', map.getPane('mapPane'));
     map.getPane('sweepPane').style.zIndex = 450;
 
     // Load CartoDB Dark Matter tile layer
