@@ -1762,10 +1762,65 @@ body {
 .sidebar-screw.bl { top: calc(100% - 18px); left: 18px; }
 .sidebar-screw.br { top: calc(100% - 18px); left: calc(100% - 18px); }
 
-/* Suppress OpenStreetMap label in landscape mode on phones to save vertical space */
+/* Optimize sidebar layout and suppress stickers in landscape mode on phones to maximize vertical space */
 @media (max-height: 480px) and (orientation: landscape) {
-    .sidebar-top-label-container {
-        display: none;
+    .sidebar-top-label-container,
+    .sidebar-bottom-label-container {
+        display: none !important;
+    }
+    
+    .radar-sidebar {
+        padding: 10px 16px !important;
+        gap: 4px !important;
+    }
+    
+    .sidebar-header {
+        margin-bottom: 4px !important;
+    }
+    
+    .glitch-title {
+        font-size: 1.0rem !important;
+    }
+    
+    .sidebar-panel {
+        margin-bottom: 6px !important;
+        padding-bottom: 4px !important;
+    }
+    
+    .panel-title {
+        font-size: 0.75rem !important;
+        margin-bottom: 2px !important;
+    }
+    
+    .control-grid {
+        row-gap: 1px !important;
+        font-size: 0.78rem !important;
+    }
+    
+    .control-input {
+        font-size: 0.78rem !important;
+    }
+    
+    .panel-controls {
+        gap: 4px !important;
+        margin-top: 4px !important;
+    }
+    
+    .retro-btn {
+        padding: 4px 8px !important;
+        font-size: 0.72rem !important;
+    }
+    
+    .target-list-panel {
+        max-height: 100px !important;
+    }
+    
+    .target-list {
+        height: 80px !important;
+    }
+    
+    .telemetry-display {
+        height: 90px !important;
     }
 }
 
