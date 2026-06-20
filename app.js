@@ -889,6 +889,7 @@ function triggerAircraftSweep(hex) {
         ac.lat = update.lat;
         ac.lon = update.lon;
         ac.alt = update.alt;
+        ac.isOnGround = update.isOnGround;
         ac.speed = update.speed;
         ac.track = update.track;
         ac.seen = update.seen;
@@ -946,7 +947,7 @@ function triggerAircraftSweep(hex) {
     // Refresh telemetry values in the sidebar list for this plane
     const rowEl = document.getElementById(`row-${safeHex}`);
     if (rowEl) {
-        rowEl.querySelector('.col-alt').innerText = ac.alt ? formatNumber(ac.alt) : '0';
+        rowEl.querySelector('.col-alt').innerText = ac.isOnGround ? 'GND' : (ac.alt ? formatNumber(ac.alt) : '0');
         rowEl.querySelector('.col-spd').innerText = ac.speed ? ac.speed : '0';
         rowEl.querySelector('.col-dst').innerText = ac.dist.toFixed(1);
     }
@@ -1006,7 +1007,8 @@ function processAPIResponse(data) {
 
         const rawCallsign = (rawAc.flight || rawAc.r || hex).trim();
         const callsign = escapeHtml(rawCallsign);
-        const alt = Number(rawAc.alt_baro || rawAc.alt_geom || 0);
+        const isOnGround = rawAc.alt_baro === 'ground' || rawAc.alt_geom === 'ground' || rawAc.ground === true || rawAc.ground === 1;
+        const alt = isOnGround ? 0 : Number(rawAc.alt_baro || rawAc.alt_geom || 0);
         const speed = Number(rawAc.gs || rawAc.ias || rawAc.tas || 0);
         const track = Number(rawAc.track || 0);
         const seen = Number(rawAc.seen || 0);
@@ -1054,6 +1056,7 @@ function processAPIResponse(data) {
                 lat: lat,
                 lon: lon,
                 alt: alt,
+                isOnGround: isOnGround,
                 speed: speed,
                 track: track,
                 seen: seen,
@@ -1070,6 +1073,7 @@ function processAPIResponse(data) {
                 lat: lat,
                 lon: lon,
                 alt: alt,
+                isOnGround: isOnGround,
                 speed: speed,
                 track: track,
                 bearing: calcBearing(lat, lon),
@@ -1213,7 +1217,7 @@ function updateTargetList() {
         // Build HTML content and replace only if changed to prevent browser paint loops
         const htmlContent = `
             <span class="col-callsign lbl-callsign">${ac.callsign}</span>
-            <span class="col-alt">${ac.alt ? formatNumber(ac.alt) : '0'}</span>
+            <span class="col-alt">${ac.isOnGround ? 'GND' : (ac.alt ? formatNumber(ac.alt) : '0')}</span>
             <span class="col-spd">${ac.speed ? ac.speed : '0'}</span>
             <span class="col-dst">${ac.dist.toFixed(1)}</span>
         `;
@@ -1414,7 +1418,7 @@ function renderTelemetryDetails(hex) {
         </div>
         <div class="tel-row">
             <span class="tel-label">ALTITUDE:</span>
-            <span class="tel-val">${ac.alt ? formatNumber(ac.alt) : '0'} FT</span>
+            <span class="tel-val">${ac.isOnGround ? 'GND' : (ac.alt ? formatNumber(ac.alt) + ' FT' : '0 FT')}</span>
         </div>
         <div class="tel-row">
             <span class="tel-label">GROUND SPEED:</span>
