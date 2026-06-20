@@ -168,10 +168,9 @@ body {
     flex-shrink: 0;
 }
 
-/* Left Sidebar Chassis Panel (Bezel Frame) */
 .radar-sidebar {
     width: calc(100% - 20px); /* 10px margins left/right within sidebar-column */
-    flex-grow: 1; /* Automatically fill remaining vertical space */
+    flex: 1 1 0%; /* Standard flex stretching */
     min-height: 0; /* Allow the sidebar bezel to shrink if vertical space is tight */
     margin: 10px 10px; /* Vertical gap between chassis and base plate stickers */
     position: relative; /* Anchor for mounting screws and bezel overlays */
@@ -200,8 +199,7 @@ body {
 .sidebar-glass-panel {
     display: flex;
     flex-direction: column;
-    height: auto;
-    flex-grow: 1;
+    flex: 1 1 0%; /* Standard flex stretching */
     min-height: 0;
     background: rgba(1, 10, 2, 0.85); /* Dark green glass plate background */
     border: 1px solid rgba(0, 255, 85, 0.18);
@@ -217,7 +215,7 @@ body {
 
 .sidebar-header {
     border-bottom: 1px solid rgba(0, 255, 85, 0.15);
-    padding-bottom: 15px;
+    padding-bottom: 12px;
     padding-right: 32px; /* Prevent title text from overlapping the absolutely positioned help button */
     margin-bottom: 0;
     position: relative; /* Anchor for absolute elements like the help button */
@@ -225,7 +223,8 @@ body {
 
 /* Glitch Title Effect */
 .glitch-title {
-    font-size: 1.8rem;
+    font-size: 1.45rem;
+    white-space: nowrap;
     font-weight: bold;
     color: var(--phosphor-green);
     text-shadow: 0 0 4px var(--phosphor-glow);
@@ -269,7 +268,7 @@ body {
     border: none;
     border-radius: 0;
     box-shadow: none;
-    padding: 15px 0;
+    padding: 12px 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -426,8 +425,7 @@ body {
 
 /* Target List Scroll Container */
 .target-list-panel {
-    flex-grow: 1;
-    flex-shrink: 1;
+    flex: 1 1 0%; /* Set basis to 0% to prevent content size from inflating flex calculations */
     min-height: 180px;
     display: flex;
     flex-direction: column;
@@ -496,6 +494,15 @@ body {
     font-weight: bold;
 }
 
+/* Telemetry Details Panel container */
+.telemetry-panel {
+    flex: 0 1 auto; /* Grow: 0 (do not expand beyond content), Shrink: 1 (shrink if space is constrained) */
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Contain the display box */
+}
+
 /* Telemetry display logs */
 .telemetry-display {
     font-size: 0.85rem;
@@ -504,9 +511,12 @@ body {
     border: 1px solid rgba(0, 255, 85, 0.1);
     border-radius: 2px;
     padding: 8px;
-    min-height: 100px;
+    min-height: 0; /* Let it shrink below 100px if space is tight */
+    flex-grow: 1;
+    flex-shrink: 1;
     overflow-y: auto;
 }
+
 
 .tel-row {
     display: flex;
@@ -1006,9 +1016,14 @@ body {
         overflow-y: auto !important;
     }
     
+    .telemetry-panel {
+        height: auto !important;
+        overflow: visible !important;
+    }
+    
     .telemetry-display {
-        height: 180px !important; /* Constrain height to prevent map bouncing on selection */
-        overflow-y: auto !important;
+        height: auto !important;
+        overflow-y: visible !important;
     }
     
     .radar-viewport {
@@ -1025,15 +1040,239 @@ body {
     }
 }
 
-/* Height-constrained desktop viewports (e.g. tablet landscape, smaller laptops) */
-@media (max-height: 850px) and (min-width: 769px) {
+/* Height-constrained desktop/tablet viewports in landscape */
+@media (max-height: 950px) and (min-width: 769px) {
+    /* Reduce top/bottom sticker container heights */
+    .sidebar-top-label-container,
+    .sidebar-bottom-label-container {
+        height: 50px;
+    }
+    /* Scale down the stickers to fit smaller containers while preserving readability */
+    .crusty-paper-label {
+        transform: rotate(-1.5deg) scale(0.92);
+    }
+    .crusty-paper-label:hover {
+        transform: rotate(-1.5deg) scale(0.95);
+    }
+    .crusty-paper-label:active {
+        transform: rotate(-1.5deg) scale(0.90) translateY(1px);
+    }
+    
+    .gpl-label-wrapper {
+        transform: rotate(2.5deg) scale(0.92);
+    }
+    .gpl-label-wrapper:hover {
+        transform: rotate(2.5deg) scale(0.95);
+    }
+    .gpl-label-wrapper:active {
+        transform: rotate(2.5deg) scale(0.90) translateY(1px);
+    }
+    
+    /* Reduce internal sidebar bezel padding and gaps */
+    .radar-sidebar {
+        padding: 20px;
+        gap: 10px;
+    }
+    
+    /* Scale down the sidebar screws and adjust positions for smaller height viewports */
+    .sidebar-screw {
+        width: 12px;
+        height: 12px;
+    }
+    .sidebar-screw::before {
+        top: 1px;
+        left: 1px;
+        right: 1px;
+        bottom: 1px;
+    }
+    .sidebar-screw::after {
+        width: 7px;
+        height: 1.3px;
+    }
+    
+    .sidebar-screw.tl { top: 14px; left: 14px; }
+    .sidebar-screw.tr { top: 14px; left: calc(100% - 14px); }
+    .sidebar-screw.ml { top: 50%; left: 14px; }
+    .sidebar-screw.mr { top: 50%; left: calc(100% - 14px); }
+    .sidebar-screw.bl { top: calc(100% - 14px); left: 14px; }
+    .sidebar-screw.br { top: calc(100% - 14px); left: calc(100% - 14px); }
+    
+    /* Reduce glass panel internal padding slightly */
     .sidebar-glass-panel {
+        padding: 10px;
+    }
+    
+    /* Reduce header padding-bottom */
+    .sidebar-header {
+        padding-bottom: 8px;
+    }
+    
+    /* Reduce vertical padding of panel sections */
+    .sidebar-panel {
+        padding: 5px 0;
+        gap: 5px;
+    }
+    
+    /* Allow configuration grids to be more compact and scale font sizes */
+    .control-grid {
+        row-gap: 1px;
+        font-size: 0.82rem;
+    }
+    .control-input {
+        font-size: 0.82rem;
+    }
+    
+    /* Scale down titles and buttons to fit side-by-side without truncation */
+    .panel-title {
+        font-size: 0.8rem;
+    }
+    .retro-btn {
+        padding: 5px 8px;
+        font-size: 0.72rem;
+    }
+    
+    /* Scale down target list headers and rows to fit more aircraft blips */
+    .list-headers {
+        font-size: 0.7rem;
+    }
+    .target-item {
+        font-size: 0.78rem;
+        padding: 4px 5px;
+    }
+
+    /* Enable telemetry display flexibility only on smaller heights */
+    .telemetry-panel {
+        flex: 0 1 auto;
+        min-height: 80px;
+    }
+    .telemetry-display {
+        font-size: 0.78rem;
+        flex-grow: 1;
+        flex-shrink: 1;
+        min-height: 0;
         overflow-y: auto;
+    }
+    .target-list-panel {
+        min-height: 150px;
+    }
+}
+
+/* Fallback for extremely short landscape viewports (e.g. height-constrained window) */
+@media (max-height: 820px) and (min-width: 769px) {
+    /* Scale stickers down to fit small vertical heights without being hidden */
+    .sidebar-top-label-container,
+    .sidebar-bottom-label-container {
+        height: 38px;
+    }
+    .crusty-paper-label {
+        transform: rotate(-1.5deg) scale(0.78);
+    }
+    .crusty-paper-label:hover {
+        transform: rotate(-1.5deg) scale(0.82);
+    }
+    .gpl-label-wrapper {
+        transform: rotate(2.5deg) scale(0.78);
+    }
+    .gpl-label-wrapper:hover {
+        transform: rotate(2.5deg) scale(0.82);
+    }
+    
+    /* Pull bezel margins and padding tighter to screen edges */
+    .radar-sidebar {
+        margin: 5px 10px;
+        padding: 16px;
+        gap: 8px;
+    }
+    
+    /* Shrink bezel screws and adjust positions to match tighter padding */
+    .sidebar-screw {
+        width: 10px;
+        height: 10px;
+    }
+    .sidebar-screw::before {
+        top: 0.8px;
+        left: 0.8px;
+        right: 0.8px;
+        bottom: 0.8px;
+    }
+    .sidebar-screw::after {
+        width: 6px;
+        height: 1.1px;
+    }
+    .sidebar-screw.tl { top: 11px; left: 11px; }
+    .sidebar-screw.tr { top: 11px; left: calc(100% - 11px); }
+    .sidebar-screw.ml { top: 50%; left: 11px; }
+    .sidebar-screw.mr { top: 50%; left: calc(100% - 11px); }
+    .sidebar-screw.bl { top: calc(100% - 11px); left: 11px; }
+    .sidebar-screw.br { top: calc(100% - 11px); left: calc(100% - 11px); }
+    
+    /* Compact glass panel with internal scrolling (never outer panel scrolling) */
+    .sidebar-glass-panel {
+        padding: 8px;
+        overflow: hidden !important;
+    }
+    
+    .sidebar-header {
+        padding-bottom: 4px;
+    }
+    
+    .glitch-title {
+        font-size: 1.15rem;
+    }
+    
+    .system-status {
+        font-size: 0.75rem;
+        margin-top: 2px;
+    }
+    
+    .sidebar-panel {
+        padding: 3px 0;
+        gap: 3px;
+    }
+    
+    .control-grid {
+        row-gap: 0px;
+        font-size: 0.76rem;
+    }
+    .control-input {
+        font-size: 0.76rem;
+    }
+    
+    .panel-title {
+        font-size: 0.75rem;
+        margin-bottom: 0px;
+    }
+    
+    .retro-btn {
+        padding: 3px 6px;
+        font-size: 0.68rem;
     }
     
     .target-list-panel {
-        max-height: 200px;
-        flex-shrink: 0; /* Prevent the flex container from squishing it below its cap */
+        flex: 1 1 0%;
+        min-height: 120px;
+        max-height: none;
+        overflow: hidden;
+    }
+    
+    .target-list {
+        min-height: 80px;
+        max-height: none;
+    }
+    
+    .telemetry-panel {
+        flex: 0 1 auto;
+        min-height: 60px;
+        overflow: hidden;
+    }
+    
+    .telemetry-display {
+        min-height: 0;
+        flex-grow: 1;
+        flex-shrink: 1;
+        font-size: 0.75rem;
+        padding: 6px;
+        overflow-y: auto;
     }
 }
 
