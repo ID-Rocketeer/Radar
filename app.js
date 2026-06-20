@@ -531,7 +531,7 @@ function updateMinZoom() {
     }
 }
 
-// Dynamically adjust the sweep line dimension to match the 250 NM range ring exactly
+// Dynamically adjust the sweep line dimension and cull range rings to prevent SVG rendering bottlenecks at deep zooms
 function updateSweepSize() {
     if (!map) return;
     if (!sweepEl || !document.body.contains(sweepEl)) {
@@ -539,7 +539,7 @@ function updateSweepSize() {
     }
     if (!sweepEl) return;
 
-    const rangeMeters = RANGE_NM * 1852; // 250 NM in meters
+    const rangeMeters = RANGE_NM * 1852; // Configured range in meters
     const centerLatLng = L.latLng(HOME_LAT, HOME_LON);
     const R = 6378137;
     const dLon = rangeMeters / (R * Math.cos(Math.PI * HOME_LAT / 180));
@@ -548,12 +548,42 @@ function updateSweepSize() {
     try {
         const centerPoint = map.latLngToLayerPoint(centerLatLng);
         const destPoint = map.latLngToLayerPoint(destLatLng);
-        const radiusPx = centerPoint.distanceTo(destPoint);
+        let radiusPx = centerPoint.distanceTo(destPoint);
         
-        sweepEl.style.width = `${radiusPx * 2}px`;
-        sweepEl.style.height = `${radiusPx * 2}px`;
-        sweepEl.style.marginLeft = `${-radiusPx}px`;
-        sweepEl.style.marginTop = `${-radiusPx}px`;
+        // Measure exact bezel rim size to determine boundaries
+        const bezelDiameter = getBezelDiameter();
+        const maxVisibleRadius = bezelDiameter * 0.5;
+
+        // Clamp sweep line radius to the bezel radius to prevent massive (e.g. 6,000,000px) animating DOM elements
+        const sweepRadius = Math.min(radiusPx, maxVisibleRadius);
+        
+        sweepEl.style.width = `${sweepRadius * 2}px`;
+        sweepEl.style.height = `${sweepRadius * 2}px`;
+        sweepEl.style.marginLeft = `${-sweepRadius}px`;
+        sweepEl.style.marginTop = `${-sweepRadius}px`;
+
+        // Cull range rings that are completely outside the visible bezel to avoid SVG rendering slowdowns
+        if (rangeRings && rangeRings.length > 0) {
+            const ringFactors = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
+            rangeRings.forEach((ring, idx) => {
+                const factor = ringFactors[idx] || 1.0;
+                const ringRadiusMeters = factor * RANGE_NM * 1852;
+                const dLonRing = ringRadiusMeters / (R * Math.cos(Math.PI * HOME_LAT / 180));
+                const ringEdgeLatLng = L.latLng(HOME_LAT, HOME_LON + dLonRing * 180 / Math.PI);
+                const ringEdgePoint = map.latLngToLayerPoint(ringEdgeLatLng);
+                const ringRadiusPx = centerPoint.distanceTo(ringEdgePoint);
+
+                if (ringRadiusPx > maxVisibleRadius + 10) {
+                    if (map.hasLayer(ring)) {
+                        map.removeLayer(ring);
+                    }
+                } else {
+                    if (!map.hasLayer(ring)) {
+                        ring.addTo(map);
+                    }
+                }
+            });
+        }
     } catch (e) {
         // Map projection not ready yet
     }
