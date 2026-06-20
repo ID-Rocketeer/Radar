@@ -682,40 +682,35 @@ function updateSweepSize() {
     }
 }
 
-// Dynamically calculate and report the physical range currently displayed at the visible bezel edge
-function updateDisplayedRange() {
-    if (!map) return;
-    const rangeEl = document.getElementById('val-range');
-    if (!rangeEl) return;
-
+// Helper to get the currently displayed range in NM based on the map zoom and bezel diameter
+function getDisplayedRange() {
+    if (!map) return RANGE_NM;
     try {
         const centerLatLng = L.latLng(HOME_LAT, HOME_LON);
         const centerPoint = map.latLngToLayerPoint(centerLatLng);
-        
-        // Measure exact bezel rim size
         const bezelDiameter = getBezelDiameter();
-        
-        // The outer range ring radius is 47.0% (0.47) of the bezel diameter
         const visibleRadiusPx = bezelDiameter * 0.47;
-        
-        // Get LatLng at the edge of the visible scope rim
         const edgeLatLng = map.layerPointToLatLng([centerPoint.x + visibleRadiusPx, centerPoint.y]);
-        
-        // Calculate distance in NM
         let displayedRange = calcDistance(HOME_LAT, HOME_LON, edgeLatLng.lat, edgeLatLng.lng);
         
-        // If the map is zoomed all the way out (at or close to minZoom), force display of exact configured range
         if (Math.abs(map.getZoom() - map.getMinZoom()) < 0.05) {
             displayedRange = RANGE_NM;
         }
-        
-        if (rangeEl.tagName === 'INPUT') {
-            rangeEl.value = displayedRange.toFixed(1);
-        } else {
-            rangeEl.innerText = `${displayedRange.toFixed(1)} NM`;
-        }
+        return displayedRange;
     } catch (e) {
-        // Map projection not ready yet
+        return RANGE_NM;
+    }
+}
+
+// Dynamically calculate and report the physical range currently displayed at the visible bezel edge
+function updateDisplayedRange() {
+    const rangeEl = document.getElementById('val-range');
+    if (!rangeEl) return;
+    const displayedRange = getDisplayedRange();
+    if (rangeEl.tagName === 'INPUT') {
+        rangeEl.value = displayedRange.toFixed(1);
+    } else {
+        rangeEl.innerText = `${displayedRange.toFixed(1)} NM`;
     }
 }
 
@@ -1123,10 +1118,11 @@ function processAPIResponse(data) {
 function isAircraftInViewport(ac) {
     if (!map) return false;
     try {
-        const bounds = map.getBounds();
-        return bounds.contains([ac.lat, ac.lon]);
+        // Use mathematical distance limit relative to current displayed scope range.
+        // This clips markers strictly inside the circular scope and resolves coordinate wrapping bugs.
+        return ac.dist <= getDisplayedRange();
     } catch (e) {
-        return true; // Default to true if bounds aren't loaded yet
+        return true; // Default to true if calculation fails
     }
 }
 
