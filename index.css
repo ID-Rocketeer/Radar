@@ -1468,11 +1468,20 @@ body {
 /* ==========================================================================
    STEVEN P. COLLINS COPYRIGHT & GPLv3 LABEL (Homemade Typewriter Sticker)
    ========================================================================== */
+.gpl-label-wrapper {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+    z-index: 100;
+    /* Hand-applied crooked orientation (opposite to OSM sticker) */
+    transform: rotate(2.5deg);
+    transition: transform 0.25s ease;
+}
+
 .gpl-paper-label {
     position: relative; /* Anchor for curled shadow pseudo-elements */
     margin: 0;
     flex-shrink: 0;
-    z-index: 100;
     text-decoration: none;
     pointer-events: auto;
     display: flex;
@@ -1487,9 +1496,6 @@ body {
         radial-gradient(circle at 15% 75%, rgba(55, 40, 20, 0.22) 0%, transparent 35%),   /* Light smudge */
         linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.18) 100%);
     
-    /* Hand-applied crooked orientation (opposite to OSM sticker) */
-    transform: rotate(2.5deg);
-    
     /* Borderless look to simulate typed sheet fragment torn off */
     border: none;
     padding: 8px 16px;
@@ -1499,11 +1505,9 @@ body {
         1px 2px 4px rgba(0, 0, 0, 0.45),
         inset 0 0 10px rgba(0, 0, 0, 0.05);
         
-    /* Organic torn paper edges via SVG displacement filter */
-    filter: url(#paper-tear);
-    
-    /* Dimmed in low light environment, brightens on hover */
-    opacity: 0.55;
+    /* Organic torn paper edges via SVG displacement filter and dimmed in low light environment */
+    filter: url(#paper-tear) brightness(0.68);
+    opacity: 1.0; /* Keep paper fully opaque so backing texture doesn't show through cardstock */
     transition: all 0.25s ease;
     cursor: pointer;
 }
@@ -1530,36 +1534,41 @@ body {
     transform: rotate(4deg);
 }
 
-/* Hover: Slightly lift sticker and brighten to full visibility, keeping textures */
-.gpl-paper-label:hover {
-    background-color: #d2cdba;
+/* Hover: Slightly lift wrapper and brighten to full visibility, keeping textures */
+.gpl-label-wrapper:hover {
     transform: rotate(2.5deg) scale(1.02);
+}
+
+.gpl-label-wrapper:hover .gpl-paper-label {
+    background-color: #d2cdba;
     box-shadow: 
         2px 4px 8px rgba(0, 0, 0, 0.55),
         inset 0 0 12px rgba(0, 0, 0, 0.03);
-    opacity: 0.95;
+    filter: url(#paper-tear) brightness(0.95);
 }
 
-.gpl-paper-label:hover::before {
+.gpl-label-wrapper:hover .gpl-paper-label::before,
+.gpl-label-wrapper:hover .gpl-paper-label::after {
     box-shadow: 0 10px 14px rgba(0, 0, 0, 0.85);
 }
-.gpl-paper-label:hover::after {
-    box-shadow: 0 10px 14px rgba(0, 0, 0, 0.85);
+
+.gpl-label-wrapper:hover .scotch-tape {
+    filter: brightness(0.95);
 }
 
 /* Active: Pressed physically down */
-.gpl-paper-label:active {
+.gpl-label-wrapper:active {
     transform: rotate(2.5deg) scale(0.98) translateY(1px);
+}
+
+.gpl-label-wrapper:active .gpl-paper-label {
     box-shadow: 
         1px 1px 2px rgba(0, 0, 0, 0.4),
         inset 0 0 8px rgba(0, 0, 0, 0.05);
-    opacity: 0.95;
 }
 
-.gpl-paper-label:active::before {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.65);
-}
-.gpl-paper-label:active::after {
+.gpl-label-wrapper:active .gpl-paper-label::before,
+.gpl-label-wrapper:active .gpl-paper-label::after {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.65);
 }
 
@@ -1598,6 +1607,8 @@ body {
     backdrop-filter: blur(0.4px);
     pointer-events: none;
     z-index: 200;
+    filter: brightness(0.68); /* Dimmed in low light environment */
+    transition: filter 0.25s ease;
     
     /* Jagged scissor-cut edges on top and bottom sides (parallel cuts from the same dispenser blade) */
     clip-path: polygon(
