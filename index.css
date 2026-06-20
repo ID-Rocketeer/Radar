@@ -154,7 +154,7 @@ body {
    ========================================================================== */
 /* Sidebar Column containing top/bottom labels and the sidebar panel bezel */
 .sidebar-column {
-    width: 380px;
+    width: 480px;
     height: 100%;
     max-height: 100dvh; /* Constrain sidebar column height strictly to viewport */
     display: flex;
@@ -210,7 +210,7 @@ body {
     box-shadow: 
         0 1px 0 rgba(255, 255, 255, 0.04) inset, /* Top edge specular highlight */
         0 2px 8px rgba(0, 0, 0, 0.7) inset; /* Inset depth shadow */
-    overflow: hidden; /* Constrain the panel, scrolling happens inside target-list */
+    overflow-y: auto; /* Allow the entire sidebar to scroll if contents cannot fit */
 }
 
 .sidebar-header {
@@ -379,8 +379,6 @@ body {
     transition: all 0.2s ease;
     border-radius: 2px;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .retro-btn:hover {
@@ -496,11 +494,8 @@ body {
 
 /* Telemetry Details Panel container */
 .telemetry-panel {
-    flex: 0 1 auto; /* Grow: 0 (do not expand beyond content), Shrink: 1 (shrink if space is constrained) */
-    min-height: 100px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden; /* Contain the display box */
+    flex: none; /* Do not grow, do not shrink, act as a static block */
+    display: block; /* Remove flex container layout */
 }
 
 /* Telemetry display logs */
@@ -511,10 +506,6 @@ body {
     border: 1px solid rgba(0, 255, 85, 0.1);
     border-radius: 2px;
     padding: 8px;
-    min-height: 0; /* Let it shrink below 100px if space is tight */
-    flex-grow: 1;
-    flex-shrink: 1;
-    overflow-y: auto;
 }
 
 
@@ -559,7 +550,7 @@ body {
     backface-visibility: hidden;
     
     /* Dynamic scope size variable (94% of remaining height/width to maximize screen space while keeping base plate margin) */
-    --scope-size: min(94dvh, calc(0.94 * (100vw - 380px)));
+    --scope-size: min(94dvh, calc(0.94 * (100vw - 480px)));
 }
 
 #map {
@@ -1042,6 +1033,13 @@ body {
 
 /* Height-constrained desktop/tablet viewports in landscape */
 @media (max-height: 950px) and (min-width: 769px) {
+    .sidebar-column {
+        width: 380px;
+    }
+    .radar-viewport {
+        --scope-size: min(94dvh, calc(0.94 * (100vw - 380px)));
+    }
+
     /* Reduce top/bottom sticker container heights */
     .sidebar-top-label-container,
     .sidebar-bottom-label-container {
@@ -1140,17 +1138,8 @@ body {
         padding: 4px 5px;
     }
 
-    /* Enable telemetry display flexibility only on smaller heights */
-    .telemetry-panel {
-        flex: 0 1 auto;
-        min-height: 80px;
-    }
     .telemetry-display {
         font-size: 0.78rem;
-        flex-grow: 1;
-        flex-shrink: 1;
-        min-height: 0;
-        overflow-y: auto;
     }
     .target-list-panel {
         min-height: 150px;
@@ -1209,7 +1198,7 @@ body {
     /* Compact glass panel with internal scrolling (never outer panel scrolling) */
     .sidebar-glass-panel {
         padding: 8px;
-        overflow: hidden !important;
+        overflow-y: auto !important;
     }
     
     .sidebar-header {
@@ -1260,19 +1249,9 @@ body {
         max-height: none;
     }
     
-    .telemetry-panel {
-        flex: 0 1 auto;
-        min-height: 60px;
-        overflow: hidden;
-    }
-    
     .telemetry-display {
-        min-height: 0;
-        flex-grow: 1;
-        flex-shrink: 1;
         font-size: 0.75rem;
         padding: 6px;
-        overflow-y: auto;
     }
 }
 

@@ -592,7 +592,8 @@ function getBezelDiameter() {
     if (window.innerWidth <= 768) {
         return Math.min(window.innerHeight * 0.54, window.innerWidth * 0.92);
     } else {
-        return Math.min(window.innerHeight * 0.94, (window.innerWidth - 380) * 0.94);
+        const sidebarWidth = window.innerHeight <= 950 ? 380 : 480;
+        return Math.min(window.innerHeight * 0.94, (window.innerWidth - sidebarWidth) * 0.94);
     }
 }
 
