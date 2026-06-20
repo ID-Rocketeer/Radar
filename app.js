@@ -54,6 +54,8 @@ const API_POLL_INTERVAL_MS = 5000; // Poll API every 5s
 
 // Map and tracking states
 let map;
+let homeMarker; // Reference to center crosshair marker
+let sweepMarker; // Reference to rotating sweep center marker
 let rangeRings = [];
 let activeAircraft = {}; // Holds aircraft metadata and map instances
 let selectedHex = null;
@@ -63,6 +65,13 @@ let targetListDomMap = {}; // Maps hex -> DOM element for target list reconcilia
 let sweepEl = null; // Global reference to the sweep line DOM element
 let sweepActive = true; // Flag to halt/resume sweep line rotation on connection errors
 let pollIntervalId = null; // ID to track active polling interval
+
+// Location selection calibration states
+let isSelectionMode = false;
+let tempLat = HOME_LAT;
+let tempLon = HOME_LON;
+let tempRange = RANGE_NM;
+let isProgrammaticChange = false;
 
 // Global bearing-based index (360 buckets of Sets, one for each degree)
 let bearingBuckets = Array.from({ length: 360 }, () => new Set());
@@ -176,9 +185,18 @@ function updateUIConfigurationValues() {
     const lonEl = document.getElementById('val-lon');
     const rangeEl = document.getElementById('val-range');
     
-    if (latEl) latEl.innerText = HOME_LAT.toFixed(5);
-    if (lonEl) lonEl.innerText = HOME_LON.toFixed(5);
-    if (rangeEl) rangeEl.innerText = `${RANGE_NM} NM`;
+    if (latEl) {
+        if (latEl.tagName === 'INPUT') latEl.value = HOME_LAT.toFixed(5);
+        else latEl.innerText = HOME_LAT.toFixed(5);
+    }
+    if (lonEl) {
+        if (lonEl.tagName === 'INPUT') lonEl.value = HOME_LON.toFixed(5);
+        else lonEl.innerText = HOME_LON.toFixed(5);
+    }
+    if (rangeEl) {
+        if (rangeEl.tagName === 'INPUT') rangeEl.value = RANGE_NM.toFixed(1);
+        else rangeEl.innerText = `${RANGE_NM} NM`;
+    }
 }
 
 function startPolling() {
@@ -237,7 +255,65 @@ function initializeRadarSystem() {
             if (statusText) statusText.innerText = "SYS_STATUS: STANDBY";
             if (indicator) indicator.classList.remove('active');
         } else {
-            startPolling();
+            if (!isSelectionMode) {
+                startPolling();
+            }
+        }
+    });
+
+    // Listen for browser navigation (Back/Forward) events to keep radar synced with address bar
+    window.addEventListener('popstate', (e) => {
+        const params = new URLSearchParams(window.location.search);
+        const pLat = parseFloat(params.get('lat') || params.get('latitude'));
+        const pLon = parseFloat(params.get('long') || params.get('longitude') || params.get('lon') || params.get('lng'));
+        const pRng = parseFloat(params.get('range') || params.get('rng'));
+
+        let changed = false;
+        if (!isNaN(pLat) && pLat !== HOME_LAT) {
+            HOME_LAT = pLat;
+            changed = true;
+        }
+        if (!isNaN(pLon) && pLon !== HOME_LON) {
+            HOME_LON = pLon;
+            changed = true;
+        }
+        if (!isNaN(pRng) && pRng !== RANGE_NM) {
+            RANGE_NM = Math.max(2, Math.min(pRng, 250));
+            changed = true;
+        }
+
+        if (changed) {
+            // Update sidebar configuration display elements
+            updateUIConfigurationValues();
+            
+            // Relocate markers and map view
+            map.setView([HOME_LAT, HOME_LON]);
+            if (homeMarker) homeMarker.setLatLng([HOME_LAT, HOME_LON]);
+            if (sweepMarker) sweepMarker.setLatLng([HOME_LAT, HOME_LON]);
+
+            // Reset zoom snap and snap the zoom level to match the new range ring diameter
+            initialZoomSet = false;
+            updateMinZoom();
+            updateSweepSize();
+            updateDisplayedRange();
+
+            // Redraw and lock range rings
+            const ringFactors = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
+            rangeRings.forEach((ring, idx) => {
+                const factor = ringFactors[idx] || 1.0;
+                ring.setLatLng([HOME_LAT, HOME_LON]);
+                ring.setRadius(factor * RANGE_NM * 1852);
+            });
+
+            // Clear active target tracking registry and bearings, and start fresh
+            activeAircraft = {};
+            bearingBuckets = Array.from({ length: 360 }, () => new Set());
+            selectedHex = null;
+            resetTelemetryDisplay();
+
+            // Refresh list and poll new location
+            updateTargetList();
+            pollFlightData();
         }
     });
 }
@@ -316,7 +392,7 @@ function initMap() {
         iconSize: [30, 30],
         iconAnchor: [15, 15]
     });
-    L.marker([HOME_LAT, HOME_LON], { icon: homeIcon, interactive: false }).addTo(map);
+    homeMarker = L.marker([HOME_LAT, HOME_LON], { icon: homeIcon, interactive: false }).addTo(map);
 
 
     document.getElementById('zoom-in').addEventListener('click', () => map.zoomIn());
@@ -461,6 +537,8 @@ function initControls() {
             closeHelp();
         }
     });
+
+    initLocationSelection();
 }
 
 
@@ -488,30 +566,9 @@ let initialZoomSet = false;
 function updateMinZoom() {
     if (!map) return;
     
-    const rangeMeters = RANGE_NM * 1852;
-    const centerLatLng = L.latLng(HOME_LAT, HOME_LON);
-    const R = 6378137;
-    const dLon = rangeMeters / (R * Math.cos(Math.PI * HOME_LAT / 180));
-    const destLatLng = L.latLng(HOME_LAT, HOME_LON + dLon * 180 / Math.PI);
-    
     try {
+        const minZoomVal = getZoomForRange(RANGE_NM);
         const currentZoom = map.getZoom();
-        const centerPoint = map.latLngToLayerPoint(centerLatLng);
-        const destPoint = map.latLngToLayerPoint(destLatLng);
-        const radiusPx = centerPoint.distanceTo(destPoint);
-        
-        // Measure exact bezel rim size
-        const bezelDiameter = getBezelDiameter();
-        
-        // Scale the target diameter to 94% (0.94) to match the outer range ring placement
-        // comfortably inside the 14px thick plastic bezel rim (cutout is at 0.475 radius)
-        const requiredRatio = (bezelDiameter * 0.94) / (2 * radiusPx);
-        const targetZoomFloat = currentZoom + Math.log2(requiredRatio);
-        
-        // Use the exact fractional target zoom to lock the minimum zoom at the inner visible bezel border
-        const minZoomVal = targetZoomFloat;
-        
-        // Check if we are currently zoomed all the way out
         const currentMinZoom = map.getMinZoom();
         const isAtMinZoom = Math.abs(currentZoom - currentMinZoom) < 0.05;
         
@@ -616,7 +673,11 @@ function updateDisplayedRange() {
             displayedRange = RANGE_NM;
         }
         
-        rangeEl.innerText = `${displayedRange.toFixed(1)} NM`;
+        if (rangeEl.tagName === 'INPUT') {
+            rangeEl.value = displayedRange.toFixed(1);
+        } else {
+            rangeEl.innerText = `${displayedRange.toFixed(1)} NM`;
+        }
     } catch (e) {
         // Map projection not ready yet
     }
@@ -632,7 +693,7 @@ function startRadarSweep() {
         html: '<div class="radar-sweep-line" id="sweep-line"></div>',
         iconSize: [0, 0]
     });
-    L.marker([HOME_LAT, HOME_LON], { icon: sweepIcon, interactive: false, pane: 'sweepPane' }).addTo(map);
+    sweepMarker = L.marker([HOME_LAT, HOME_LON], { icon: sweepIcon, interactive: false, pane: 'sweepPane' }).addTo(map);
 
     let lastTime = null;
     let currentAngle = 0;
@@ -1147,6 +1208,16 @@ function updateMarkerVisibility(hex) {
     const ac = activeAircraft[hex];
     if (!ac) return;
 
+    if (isSelectionMode) {
+        if (ac.marker && map.hasLayer(ac.marker)) {
+            map.removeLayer(ac.marker);
+        }
+        if (ac.trail && map.hasLayer(ac.trail)) {
+            map.removeLayer(ac.trail);
+        }
+        return;
+    }
+
     let visible = true;
     if (activeFilter === 'mil' && !ac.mil) visible = false;
     else if (activeFilter === 'commercial' && !isCommercialAircraft(ac)) visible = false;
@@ -1398,4 +1469,344 @@ function escapeHtml(str) {
 function sanitizeId(str) {
     if (typeof str !== 'string') return '';
     return str.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+/* ==========================================================================
+   INTERACTIVE LOCATION & RANGE SELECTION MODE
+   ========================================================================== */
+function initLocationSelection() {
+    const selectBtn = document.getElementById('location-select-btn');
+    const confirmBtn = document.getElementById('location-confirm-btn');
+    const cancelBtn = document.getElementById('location-cancel-btn');
+
+    if (selectBtn) {
+        selectBtn.addEventListener('click', enterSelectionMode);
+    }
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => exitSelectionMode(true));
+    }
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => exitSelectionMode(false));
+    }
+
+    const latInput = document.getElementById('val-lat');
+    const lonInput = document.getElementById('val-lon');
+    const rangeInput = document.getElementById('val-range');
+
+    const handleManualConfigChange = () => {
+        if (!isSelectionMode) return;
+
+        let newLat = parseFloat(latInput.value);
+        let newLon = parseFloat(lonInput.value);
+        let newRange = parseFloat(rangeInput.value);
+
+        if (isNaN(newLat)) newLat = tempLat;
+        if (isNaN(newLon)) newLon = tempLon;
+        if (isNaN(newRange)) newRange = tempRange;
+
+        // Clamp values to valid geographical/system limits
+        newLat = Math.max(-90, Math.min(90, newLat));
+        newLon = Math.max(-180, Math.min(180, newLon));
+        newRange = Math.max(2, Math.min(newRange, 250));
+
+        tempLat = newLat;
+        tempLon = newLon;
+        tempRange = newRange;
+
+        // Sync inputs with the parsed/clamped values in case they typed out of bounds
+        latInput.value = tempLat.toFixed(5);
+        lonInput.value = tempLon.toFixed(5);
+        rangeInput.value = tempRange.toFixed(1);
+
+        // Set the programmatic change flag to prevent race conditions during setView
+        isProgrammaticChange = true;
+
+        // Temporarily unbind map moveend events to prevent loop feedback
+        map.off('move drag zoom', handleSelectionMapChange);
+
+        // Update map zoom limits for the new latitude
+        const minZoomSelection = getZoomForRange(250);
+        const maxZoomSelection = getZoomForRange(2);
+        map.setMinZoom(minZoomSelection);
+        map.setMaxZoom(maxZoomSelection);
+
+        const targetZoom = getZoomForRange(tempRange);
+        map.setView([tempLat, tempLon], targetZoom, { animate: false });
+
+        // Redraw rings around the new target center
+        const ringFactors = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
+        rangeRings.forEach((ring, idx) => {
+            const factor = ringFactors[idx] || 1.0;
+            ring.setLatLng([tempLat, tempLon]);
+            ring.setRadius(factor * tempRange * 1852);
+            if (!map.hasLayer(ring)) ring.addTo(map);
+        });
+
+        // Re-enable event listeners
+        map.on('move drag zoom', handleSelectionMapChange);
+
+        // Safely clear programmatic change flag after Leaflet finishes event loop updates
+        setTimeout(() => {
+            isProgrammaticChange = false;
+        }, 150);
+    };
+
+    if (latInput) latInput.addEventListener('change', handleManualConfigChange);
+    if (lonInput) lonInput.addEventListener('change', handleManualConfigChange);
+    if (rangeInput) rangeInput.addEventListener('change', handleManualConfigChange);
+
+    // Also trigger confirm if the user presses Enter in any input
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            e.target.blur(); // Triggers change event
+            exitSelectionMode(true);
+        }
+    };
+    if (latInput) latInput.addEventListener('keydown', handleKeyPress);
+    if (lonInput) lonInput.addEventListener('keydown', handleKeyPress);
+    if (rangeInput) rangeInput.addEventListener('keydown', handleKeyPress);
+}
+
+function enterSelectionMode() {
+    isSelectionMode = true;
+    tempLat = HOME_LAT;
+    tempLon = HOME_LON;
+    tempRange = RANGE_NM;
+
+    // Pause target polling and sweep line rotation
+    stopPolling();
+    sweepActive = false;
+    
+    // Hide rotating sweep line overlay
+    const sweepEl = document.getElementById('sweep-line');
+    if (sweepEl) sweepEl.style.display = 'none';
+
+    // Clear active aircraft markers and trails from Leaflet map
+    Object.keys(activeAircraft).forEach(hex => {
+        const ac = activeAircraft[hex];
+        if (ac.marker && map.hasLayer(ac.marker)) map.removeLayer(ac.marker);
+        if (ac.trail && map.hasLayer(ac.trail)) map.removeLayer(ac.trail);
+    });
+
+    // Update status display text to Calibration Mode
+    const statusText = document.querySelector('.system-status .status-text');
+    const indicator = document.querySelector('.status-indicator');
+    if (statusText) statusText.innerText = "SYS_STATUS: CALIBRATION";
+    if (indicator) indicator.classList.remove('active');
+
+    // Add CSS class to viewport to transition map opacity and reveal reticle
+    const viewport = document.querySelector('.radar-viewport');
+    if (viewport) viewport.classList.add('selection-mode');
+
+    // Toggle button visibilities in sidebar
+    document.getElementById('location-select-btn').style.display = 'none';
+    document.getElementById('location-confirm-btn').style.display = 'inline-block';
+    document.getElementById('location-cancel-btn').style.display = 'inline-block';
+
+    // Enable map dragging
+    map.dragging.enable();
+
+    // Make configuration inputs editable during location selection
+    const latInput = document.getElementById('val-lat');
+    const lonInput = document.getElementById('val-lon');
+    const rangeInput = document.getElementById('val-range');
+    if (latInput) latInput.removeAttribute('readonly');
+    if (lonInput) lonInput.removeAttribute('readonly');
+    if (rangeInput) rangeInput.removeAttribute('readonly');
+
+    // Display raw numerical values
+    if (latInput) latInput.value = tempLat.toFixed(5);
+    if (lonInput) lonInput.value = tempLon.toFixed(5);
+    if (rangeInput) rangeInput.value = tempRange.toFixed(1);
+
+    // Dynamically calculate selection zoom bounds based on range parameters
+    const minZoomSelection = getZoomForRange(250);
+    const maxZoomSelection = getZoomForRange(2);
+    
+    map.setMinZoom(minZoomSelection);
+    map.setMaxZoom(maxZoomSelection);
+
+    // Keep map center and clamp zoom level strictly within calculated bounds
+    isProgrammaticChange = true;
+    const currentZoom = map.getZoom();
+    const targetZoom = Math.max(minZoomSelection, Math.min(currentZoom, maxZoomSelection));
+    map.setView([tempLat, tempLon], targetZoom, { animate: false });
+
+    // Bind Leaflet map drag/zoom events
+    map.on('move drag zoom', handleSelectionMapChange);
+
+    setTimeout(() => {
+        isProgrammaticChange = false;
+    }, 150);
+}
+
+function handleSelectionMapChange() {
+    if (!isSelectionMode || isProgrammaticChange) return;
+
+    const center = map.getCenter();
+    tempLat = center.lat;
+    tempLon = center.lng;
+
+    // Calculate current scope range by measuring distance from center to bezel edge in pixels
+    const bezelDiameter = getBezelDiameter();
+    const visibleRadiusPx = bezelDiameter * 0.47;
+    const centerPoint = map.latLngToLayerPoint(center);
+    const edgeLatLng = map.layerPointToLatLng([centerPoint.x + visibleRadiusPx, centerPoint.y]);
+    
+    let displayedRange = calcDistance(tempLat, tempLon, edgeLatLng.lat, edgeLatLng.lng);
+    tempRange = Math.max(2, Math.min(displayedRange, 250));
+
+    // Update map zoom limits dynamically based on current center latitude
+    const minZoomSelection = getZoomForRange(250);
+    const maxZoomSelection = getZoomForRange(2);
+    if (Math.abs(map.getMinZoom() - minZoomSelection) > 0.01) {
+        map.setMinZoom(minZoomSelection);
+    }
+    if (Math.abs(map.getMaxZoom() - maxZoomSelection) > 0.01) {
+        map.setMaxZoom(maxZoomSelection);
+    }
+
+    // Update sidebar UI text readouts in real-time (but don't overwrite user's typing active state)
+    const latInput = document.getElementById('val-lat');
+    const lonInput = document.getElementById('val-lon');
+    const rangeInput = document.getElementById('val-range');
+
+    if (latInput && document.activeElement !== latInput) {
+        latInput.value = tempLat.toFixed(5);
+    }
+    if (lonInput && document.activeElement !== lonInput) {
+        lonInput.value = tempLon.toFixed(5);
+    }
+    if (rangeInput && document.activeElement !== rangeInput) {
+        rangeInput.value = tempRange.toFixed(1);
+    }
+
+    // Rescale and center Leaflet range rings around the new target center
+    const ringFactors = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
+    rangeRings.forEach((ring, idx) => {
+        const factor = ringFactors[idx] || 1.0;
+        ring.setLatLng(center);
+        ring.setRadius(factor * tempRange * 1852);
+        
+        // Force rings to be visible (in case they were culled at closer zooms previously)
+        if (!map.hasLayer(ring)) {
+            ring.addTo(map);
+        }
+    });
+}
+
+function exitSelectionMode(confirmChanges) {
+    isSelectionMode = false;
+
+    // Unbind Leaflet events
+    map.off('move drag zoom', handleSelectionMapChange);
+
+    // Disable map dragging
+    map.dragging.disable();
+
+    // Toggle button visibility back to default
+    document.getElementById('location-select-btn').style.display = 'inline-block';
+    document.getElementById('location-confirm-btn').style.display = 'none';
+    document.getElementById('location-cancel-btn').style.display = 'none';
+
+    // Remove CSS class from viewport (restores map opacity and hides reticle)
+    const viewport = document.querySelector('.radar-viewport');
+    if (viewport) viewport.classList.remove('selection-mode');
+
+    // Make configuration inputs read-only again
+    const latInput = document.getElementById('val-lat');
+    const lonInput = document.getElementById('val-lon');
+    const rangeInput = document.getElementById('val-range');
+    if (latInput) latInput.setAttribute('readonly', 'true');
+    if (lonInput) lonInput.setAttribute('readonly', 'true');
+    if (rangeInput) rangeInput.setAttribute('readonly', 'true');
+
+    // Reset map zoom constraints to default active radar limits
+    map.setMinZoom(4);
+    map.setMaxZoom(20);
+
+    if (confirmChanges) {
+        // Commit changes to system variables
+        HOME_LAT = tempLat;
+        HOME_LON = tempLon;
+        RANGE_NM = tempRange;
+
+        // Update address bar query parameters dynamically without a page refresh
+        const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${Math.round(RANGE_NM)}`;
+        window.history.pushState({ path: newUrl }, '', newUrl);
+
+        // Snap map view center
+        map.setView([HOME_LAT, HOME_LON]);
+
+        // Clear active target tracking registry and bearings
+        activeAircraft = {};
+        bearingBuckets = Array.from({ length: 360 }, () => new Set());
+        selectedHex = null;
+        resetTelemetryDisplay();
+
+        // Refresh sidebar lists
+        updateTargetList();
+    } else {
+        // Cancel changes: revert map position to original home coordinates
+        map.setView([HOME_LAT, HOME_LON]);
+    }
+
+    // Reset zoom snap and snap the zoom level to match the new or original range ring diameter
+    initialZoomSet = false;
+    updateMinZoom();
+    updateSweepSize();
+    updateDisplayedRange();
+
+    // Redraw and lock range rings back to center with proper range
+    const ringFactors = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
+    rangeRings.forEach((ring, idx) => {
+        const factor = ringFactors[idx] || 1.0;
+        ring.setLatLng([HOME_LAT, HOME_LON]);
+        ring.setRadius(factor * RANGE_NM * 1852);
+    });
+
+    // Relocate home crosshair marker to new coordinates
+    if (homeMarker) {
+        homeMarker.setLatLng([HOME_LAT, HOME_LON]);
+    }
+
+    // Relocate rotating sweep marker center to new coordinates
+    if (sweepMarker) {
+        sweepMarker.setLatLng([HOME_LAT, HOME_LON]);
+    }
+
+    // Sync the inputs with final values
+    updateUIConfigurationValues();
+
+    // Resume polling and start sweep line animation
+    startPolling();
+    sweepActive = true;
+    
+    const sweepEl = document.getElementById('sweep-line');
+    if (sweepEl) {
+        sweepEl.style.display = 'block';
+        updateSweepSize();
+    }
+}
+
+function getZoomForRange(range) {
+    if (!map) return 8;
+    try {
+        const center = map.getCenter();
+        const lat = center.lat;
+        const rangeMeters = range * 1852;
+        const bezelDiameter = getBezelDiameter();
+        const targetRadiusPx = bezelDiameter * 0.47; // Align with 0.47 bezel fit
+        
+        const equatorCircumference = 40075017; // meters
+        const metersPerPixelAtZoom0 = (equatorCircumference * Math.cos(lat * Math.PI / 180)) / 256;
+        
+        const denominator = rangeMeters;
+        if (denominator <= 0) return 8;
+        
+        const val = (targetRadiusPx * metersPerPixelAtZoom0) / denominator;
+        return Math.log2(val);
+    } catch (e) {
+        return 8;
+    }
 }

@@ -32,6 +32,14 @@
     --font-radar: 'Roboto Mono', monospace;
     --font-body: 'Roboto', sans-serif;
     --crt-flicker-speed: 0.15s;
+    
+    /* Parameterized Map Opacities & Filters (Tweakable calibration settings) */
+    --map-opacity-radar: 0.45; /* Soft background tile visibility during active scan */
+    --map-opacity-setup: 0.75; /* Brightened tile visibility during location calibration */
+    --map-brightness-radar: 1.6; /* Filter brightness during active scan */
+    --map-brightness-setup: 2.2; /* Tweakable map brightness during location calibration */
+    --map-contrast-radar: 1.2; /* Filter contrast during active scan */
+    --map-contrast-setup: 1.4; /* Tweakable map contrast during location calibration */
 
     /* The base textured black wrinkle paint (seamless across components) */
     --wrinkle-paint-bg: 
@@ -288,11 +296,63 @@ body {
 
 .control-label {
     color: var(--phosphor-dim-text);
+    display: flex;
+    align-items: center;
 }
 
 .control-value {
     color: var(--phosphor-green);
     font-weight: bold;
+    display: flex;
+    align-items: center;
+}
+
+/* Retro input fields for manual coordinates/range updates */
+.control-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--phosphor-green);
+    font-family: var(--font-radar);
+    font-size: 0.9rem;
+    font-weight: bold;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    cursor: default;
+}
+
+.range-input-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+}
+
+.range-unit {
+    color: var(--phosphor-green);
+    font-weight: bold;
+}
+
+/* Style editable configuration fields when selection mode is active */
+.selection-mode .control-input:not([readonly]) {
+    color: var(--phosphor-green-bright);
+    border-bottom: 1px dashed rgba(0, 255, 85, 0.4);
+    cursor: text;
+    transition: border-color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.selection-mode .control-input:not([readonly]):hover {
+    border-bottom-color: rgba(0, 255, 85, 0.8);
+}
+
+.selection-mode .control-input:not([readonly]):focus {
+    border-bottom: 1px solid var(--phosphor-green-bright);
+    text-shadow: 0 0 4px var(--phosphor-glow-heavy);
+}
+
+.selection-mode .range-unit {
+    color: var(--phosphor-green-bright);
 }
 
 .panel-controls {
@@ -500,10 +560,11 @@ body {
 /* Apply monochrome green filter ONLY to map background tiles, 
    leaving markers, trails, and labels perfectly crisp and unrasterized */
 .leaflet-tile-pane {
-    filter: brightness(1.6) contrast(1.2) sepia(100%) hue-rotate(85deg) saturate(6);
-    opacity: 0.45; /* Soft, visible blend that doesn't compete with active flight markers */
+    filter: brightness(var(--map-brightness-radar)) contrast(var(--map-contrast-radar)) sepia(100%) hue-rotate(85deg) saturate(6);
+    opacity: var(--map-opacity-radar); /* Soft, visible blend that doesn't compete with active flight markers */
     transform: translateZ(0); /* Force GPU compositing for CSS filters to prevent repaint flashes */
     will-change: transform;
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Adjust map overlay elements back to original if needed, but in our case, 
@@ -1707,4 +1768,157 @@ body {
         display: none;
     }
 }
+
+/* ==========================================================================
+   LOCATION SELECTION RETICLE & CALIBRATION STYLES
+   ========================================================================== */
+.radar-reticle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none; /* Pass clicks to Leaflet underneath */
+    z-index: 1005; /* Above markers, below outer rim overlays */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    /* Center it inside the scope bezel */
+    width: var(--scope-size);
+    height: var(--scope-size);
+    
+    /* Animate opacity of the reticle when entering calibration mode */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+/* Make it visible when viewport is in selection mode */
+.selection-mode .radar-reticle {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Glowing outer dashed calibration circle */
+.reticle-ring-outer {
+    position: absolute;
+    width: calc(var(--scope-size) * 0.45);
+    height: calc(var(--scope-size) * 0.45);
+    border: 1.5px dashed var(--phosphor-green-bright);
+    border-radius: 50%;
+    opacity: 0.65;
+    box-shadow: 
+        0 0 8px var(--phosphor-glow),
+        inset 0 0 8px var(--phosphor-glow);
+    animation: reticle-pulse-outer 4s infinite linear;
+}
+
+/* Nested solid inner calibration circle */
+.reticle-ring-inner {
+    position: absolute;
+    width: calc(var(--scope-size) * 0.18);
+    height: calc(var(--scope-size) * 0.18);
+    border: 1px solid var(--phosphor-green);
+    border-radius: 50%;
+    opacity: 0.45;
+    box-shadow: 0 0 4px var(--phosphor-glow);
+}
+
+/* Hairline reticle crosshairs (horizontal & vertical) */
+.reticle-crosshair-h,
+.reticle-crosshair-v {
+    position: absolute;
+    background-color: var(--phosphor-green);
+    box-shadow: 0 0 3px var(--phosphor-glow);
+    opacity: 0.55;
+}
+
+.reticle-crosshair-h {
+    width: calc(var(--scope-size) * 0.6);
+    height: 1px;
+    /* Create a gap around center dot using multi-stop linear gradient */
+    background: linear-gradient(
+        to right,
+        var(--phosphor-green) 0%,
+        var(--phosphor-green) 46%,
+        transparent 46%,
+        transparent 54%,
+        var(--phosphor-green) 54%,
+        var(--phosphor-green) 100%
+    );
+}
+
+.reticle-crosshair-v {
+    width: 1px;
+    height: calc(var(--scope-size) * 0.6);
+    background: linear-gradient(
+        to bottom,
+        var(--phosphor-green) 0%,
+        var(--phosphor-green) 46%,
+        transparent 46%,
+        transparent 54%,
+        var(--phosphor-green) 54%,
+        var(--phosphor-green) 100%
+    );
+}
+
+/* Micro center target dot */
+.reticle-center-dot {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    background-color: var(--phosphor-green-bright);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--phosphor-green-bright);
+    opacity: 0.9;
+}
+
+/* Pulsing text readout centered below target */
+.reticle-text {
+    position: absolute;
+    bottom: 22%;
+    color: var(--phosphor-green-bright);
+    font-family: var(--font-radar);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-shadow: 0 0 4px var(--phosphor-glow-heavy);
+    animation: reticle-text-glow 1.5s infinite ease-in-out;
+}
+
+/* Pulsing animations */
+@keyframes reticle-pulse-outer {
+    0% { transform: rotate(0deg) scale(1); opacity: 0.65; }
+    50% { transform: rotate(180deg) scale(1.02); opacity: 0.85; }
+    100% { transform: rotate(360deg) scale(1); opacity: 0.65; }
+}
+
+@keyframes reticle-text-glow {
+    0% { opacity: 0.45; text-shadow: 0 0 2px var(--phosphor-glow); }
+    50% { opacity: 1; text-shadow: 0 0 6px var(--phosphor-glow-heavy); }
+    100% { opacity: 0.45; text-shadow: 0 0 2px var(--phosphor-glow); }
+}
+
+/* Selection Mode active states on map layer, sweep, and targets */
+.selection-mode .radar-sweep-line {
+    display: none !important;
+}
+
+.selection-mode .aircraft-marker {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 0.3s ease;
+}
+
+.selection-mode .radar-trail {
+    opacity: 0 !important;
+    transition: opacity 0.3s ease;
+}
+
+/* Adjust map tile opacity and brightness in selection mode */
+.selection-mode .leaflet-tile-pane {
+    filter: brightness(var(--map-brightness-setup)) contrast(var(--map-contrast-setup)) sepia(100%) hue-rotate(85deg) saturate(6) !important;
+    opacity: var(--map-opacity-setup) !important;
+}
+
 

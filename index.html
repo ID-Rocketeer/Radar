@@ -33,7 +33,7 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="index.css?v=9.12">
+    <link rel="stylesheet" href="index.css?v=10.0">
 </head>
 <body>
     <div class="radar-container">
@@ -78,11 +78,18 @@
                         <h2 class="panel-title">// CONFIGURATION</h2>
                         <div class="control-grid">
                             <div class="control-label">LATITUDE:</div>
-                            <div class="control-value" id="val-lat">30.19453</div>
+                            <div class="control-value">
+                                <input type="text" id="val-lat" class="control-input" readonly value="30.19453" autocomplete="off" spellcheck="false">
+                            </div>
                             <div class="control-label">LONGITUDE:</div>
-                            <div class="control-value" id="val-lon">-97.66987</div>
+                            <div class="control-value">
+                                <input type="text" id="val-lon" class="control-input" readonly value="-97.66987" autocomplete="off" spellcheck="false">
+                            </div>
                             <div class="control-label">RANGE:</div>
-                            <div class="control-value" id="val-range">250 NM</div>
+                            <div class="control-value range-input-container">
+                                <input type="text" id="val-range" class="control-input" readonly value="250" autocomplete="off" spellcheck="false">
+                                <span class="range-unit">NM</span>
+                            </div>
                         </div>
                         <div class="panel-controls">
                             <button class="retro-btn" id="trail-toggle">
@@ -90,6 +97,17 @@
                             </button>
                             <button class="retro-btn" id="fullscreen-toggle">
                                 FULLSCREEN: OFF
+                            </button>
+                        </div>
+                        <div class="panel-controls location-controls" style="margin-top: 8px;">
+                            <button class="retro-btn" id="location-select-btn" style="flex: 1; border-color: rgba(0, 255, 85, 0.35);">
+                                SELECT LOCATION
+                            </button>
+                            <button class="retro-btn" id="location-confirm-btn" style="display: none; flex: 1; color: var(--phosphor-green-bright); border-color: var(--phosphor-green-bright); font-weight: bold;">
+                                CONFIRM
+                            </button>
+                            <button class="retro-btn" id="location-cancel-btn" style="display: none; flex: 1; color: #ffaa00; border-color: #ffaa00; font-weight: bold;">
+                                CANCEL
                             </button>
                         </div>
                     </section>
@@ -144,6 +162,15 @@
         <!-- Main Radar Viewport (Map) -->
         <main class="radar-viewport">
             <div id="map"></div>
+            <!-- Centered Calibration Reticle (Visible only during location selection) -->
+            <div class="radar-reticle">
+                <div class="reticle-ring-outer"></div>
+                <div class="reticle-ring-inner"></div>
+                <div class="reticle-crosshair-h"></div>
+                <div class="reticle-crosshair-v"></div>
+                <div class="reticle-center-dot"></div>
+                <div class="reticle-text">CALIBRATING LOCATION...</div>
+            </div>
             <!-- CRT Bezel Panel & 3D Glass Overlays -->
             <div class="radar-bezel"></div>
             <div class="radar-scope-rim"></div>
@@ -234,6 +261,6 @@
     <!-- Leaflet JS -->
     <script data-cfasync="false" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <!-- Application Logic -->
-    <script data-cfasync="false" src="app.js?v=7.5"></script>
+    <script data-cfasync="false" src="app.js?v=10.0"></script>
 </body>
 </html>
