@@ -780,16 +780,16 @@ body {
     background-attachment: fixed;
         
     /* Circular mask cutout: center is transparent, corners are solid brushed aluminum.
-       Tuned to overlap under the 32px rim border using the dynamic scope size variable */
+       Tuned to overlap under the dynamic rim border using the dynamic scope size variable */
     -webkit-mask-image: radial-gradient(
         circle at center,
-        transparent calc(var(--scope-size) * 0.5 - 34px),
-        black calc(var(--scope-size) * 0.5 - 33px)
+        transparent calc(var(--scope-size) * 0.4744 - 2px),
+        black calc(var(--scope-size) * 0.4744 - 1px)
     );
     mask-image: radial-gradient(
         circle at center,
-        transparent calc(var(--scope-size) * 0.5 - 34px),
-        black calc(var(--scope-size) * 0.5 - 33px)
+        transparent calc(var(--scope-size) * 0.4744 - 2px),
+        black calc(var(--scope-size) * 0.4744 - 1px)
     );
 }
 
@@ -812,18 +812,18 @@ body {
     height: var(--scope-size);
 }
 
-/* Sizing for the glass overlays (D - 64px) to sit strictly inside the 32px rim border */
+/* Sizing for the glass overlays (D * 0.9488) to sit strictly inside the dynamic rim border */
 .radar-glass-edge, 
 .radar-glass-glare {
-    width: calc(var(--scope-size) - 64px);
-    height: calc(var(--scope-size) - 64px);
+    width: calc(var(--scope-size) * 0.9488);
+    height: calc(var(--scope-size) * 0.9488);
 }
 
 /* Container for radar scope mounting screws (raised to z-index 2200 to prevent overlays from clipping them)
-   Sized to D - 32px so the screws are centered perfectly in the 32px wide rim border */
+   Sized to D * 0.9744 so the screws are centered perfectly in the middle of the dynamic bezel border */
 .radar-scope-screws-container {
-    width: calc(var(--scope-size) - 32px);
-    height: calc(var(--scope-size) - 32px);
+    width: calc(var(--scope-size) * 0.9744);
+    height: calc(var(--scope-size) * 0.9744);
     position: absolute;
     top: 50%;
     left: 50%;
@@ -838,14 +838,16 @@ body {
     z-index: 2010;
     overflow: visible !important; /* Ensure child elements do not clip */
     /* Multilayered shadows and borders to simulate a heavy, rounded plastic/metallic rim */
-    border: 32px solid #141a16; /* Heavy metal rim bezel holding the heavy CRT glass screen */
+    border-style: solid;
+    border-color: #141a16;
+    border-width: calc(var(--scope-size) * 0.0256); /* Heavy metal rim border scales to 2.56% of scope size */
     box-shadow: 
         0 8px 24px rgba(0, 0, 0, 0.8), /* Depth shadow onto the brushed aluminum panel */
         0 0 0 1px rgba(255, 255, 255, 0.08), /* Subtle rim outer highlights */
         0 4px 12px rgba(0, 0, 0, 0.95) inset, /* Deep inner bezel depth shadow */
         0 -2px 6px rgba(255, 255, 255, 0.15) inset, /* Specular edge lighting inside rim */
         0 2px 4px rgba(255, 255, 255, 0.08), /* Outer bezel bevel light catcher */
-        inset 0 0 0 5px #202b23; /* Inner circular detail ridge matching the thicker rim */
+        inset 0 0 0 2px #202b23; /* Inner circular detail ridge (fixed at 2px to stay sharp on mobile) */
     
     /* Simulate overhead specular reflections */
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 50%, rgba(0, 0, 0, 0.45) 100%);
@@ -854,10 +856,10 @@ body {
 /* Dimensional CRT Glass Refraction Edge */
 .radar-glass-edge {
     z-index: 2012;
-    border: 6px solid transparent;
+    border: none; /* Removed transparent border to eliminate the detached edge line visual bug */
     /* Replicates the physical refraction of thick cathode-ray tube glass */
     box-shadow: 
-        0 0 0 4px rgba(0, 10, 2, 0.95) inset, /* Dark border at the edge of the glass */
+        0 0 0 4px rgba(0, 10, 2, 0.95) inset, /* Dark gasket seal shadow flush against bezel */
         0 0 12px 2px rgba(0, 255, 85, 0.22) inset, /* Bright phosphor dispersion edge glow */
         0 0 35px 15px rgba(0, 5, 1, 0.85) inset; /* Soft inner tube shadow */
 }
@@ -1596,10 +1598,25 @@ body {
     background: radial-gradient(circle at 35% 35%, #e1e6e3 0%, #909592 45%, #3c413e 80%, #171c19 100%);
 }
 
-/* Adjust z-index of scope screws to sit above CRT bezel rims and apply Z-translation */
+/* Adjust z-index of scope screws, apply Z-translation, and scale size proportionally */
 .scope-screw {
+    width: max(10px, calc(var(--scope-size) * 0.0197)); /* Scale scope screws to 1.97% of scope size, clamp at min 10px */
+    height: max(10px, calc(var(--scope-size) * 0.0197));
     transform: translate(-50%, -50%) translateZ(5px);
     z-index: 2025;
+}
+
+/* For scope screws, override pixel-based offsets with percentage-based proportions */
+.scope-screw::before {
+    top: 8.33%;
+    left: 8.33%;
+    right: 8.33%;
+    bottom: 8.33%; /* 13/16 ratio head size */
+}
+
+.scope-screw::after {
+    width: 54%; /* Scaled slot width */
+    height: 10%; /* Scaled slot height */
 }
 
 /* Adjust z-index of sidebar screws, apply Z-translation, and scale size down to 2/3 */
