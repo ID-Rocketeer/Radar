@@ -1325,6 +1325,7 @@ body {
     box-shadow: 0 4px 30px rgba(0, 255, 85, 0.15) !important;
     animation: modal-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     flex-grow: 0; /* Block horizontal stretching from sidebar-glass-panel flex-grow: 1 */
+    flex: none !important; /* Block flex basis and shrink behavior inherited from sidebar-glass-panel */
 }
 
 @keyframes modal-slide-in {
