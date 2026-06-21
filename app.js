@@ -362,6 +362,12 @@ if (document.readyState === 'loading') {
 
 // Update scope dimension and zoom limits on window resize
 window.addEventListener('resize', () => {
+    if (map) {
+        map.invalidateSize({ panTo: isSelectionMode });
+        if (!isSelectionMode) {
+            map.setView([HOME_LAT, HOME_LON], map.getZoom(), { animate: false });
+        }
+    }
     updateMinZoom();
     updateSweepSize();
     updateDisplayedRange();

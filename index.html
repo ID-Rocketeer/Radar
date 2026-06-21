@@ -33,7 +33,7 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="index.css?v=10.47">
+    <link rel="stylesheet" href="index.css?v=10.57">
 </head>
 <body>
     <div class="radar-container">
@@ -202,6 +202,13 @@
                 <button id="zoom-out" title="Zoom Out">-</button>
             </div>
         </main>
+        <!-- Mobile Brand Label Strip (flow element below radar scope, stacked portrait only)
+             The desktop .brand-label inside .radar-viewport is hidden in mobile mode.
+             This strip renders in the base plate area below the scope, guaranteed clear. -->
+        <div class="brand-label-strip">
+            <div class="brand-name">Dragon Dreams Software</div>
+            <div class="brand-model">Type-1090 Display Unit</div>
+        </div>
     </div>
 
     <!-- Help Modal Overlay -->
