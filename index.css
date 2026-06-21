@@ -839,6 +839,11 @@ body {
     flex-direction: column;
     gap: 3px;
     
+    /* Screen blend: composites the cream paint into the wrinkle texture beneath,
+       letting the micro-surface relief show through — like ink absorbed into textured paint.
+       Rollback: remove this one property to restore opaque paint. */
+    mix-blend-mode: screen;
+    
     /* Apply a soft, asymmetric mask with gentle outer-edge fading and a single thin scratch */
     -webkit-mask-image: linear-gradient(
         105deg,
