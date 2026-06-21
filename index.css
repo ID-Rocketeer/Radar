@@ -993,6 +993,13 @@ body {
         gap: 12px;
     }
     
+    .sidebar-screw.tl { top: 15px; left: 15px; }
+    .sidebar-screw.tr { top: 15px; left: calc(100% - 15px); }
+    .sidebar-screw.ml { top: 50%; left: 15px; }
+    .sidebar-screw.mr { top: 50%; left: calc(100% - 15px); }
+    .sidebar-screw.bl { top: calc(100% - 15px); left: 15px; }
+    .sidebar-screw.br { top: calc(100% - 15px); left: calc(100% - 15px); }
+    
     .sidebar-glass-panel {
         height: auto !important;
         overflow: visible !important;
@@ -1089,12 +1096,12 @@ body {
         height: 1.3px;
     }
     
-    .sidebar-screw.tl { top: 12px; left: 12px; }
-    .sidebar-screw.tr { top: 12px; left: calc(100% - 12px); }
-    .sidebar-screw.ml { top: 50%; left: 12px; }
-    .sidebar-screw.mr { top: 50%; left: calc(100% - 12px); }
-    .sidebar-screw.bl { top: calc(100% - 12px); left: 12px; }
-    .sidebar-screw.br { top: calc(100% - 12px); left: calc(100% - 12px); }
+    .sidebar-screw.tl { top: 10px; left: 10px; }
+    .sidebar-screw.tr { top: 10px; left: calc(100% - 10px); }
+    .sidebar-screw.ml { top: 50%; left: 10px; }
+    .sidebar-screw.mr { top: 50%; left: calc(100% - 10px); }
+    .sidebar-screw.bl { top: calc(100% - 10px); left: 10px; }
+    .sidebar-screw.br { top: calc(100% - 10px); left: calc(100% - 10px); }
     
     /* Reduce glass panel internal padding slightly */
     .sidebar-glass-panel {
@@ -1189,12 +1196,12 @@ body {
         width: 6px;
         height: 1.1px;
     }
-    .sidebar-screw.tl { top: 10px; left: 10px; }
-    .sidebar-screw.tr { top: 10px; left: calc(100% - 10px); }
-    .sidebar-screw.ml { top: 50%; left: 10px; }
-    .sidebar-screw.mr { top: 50%; left: calc(100% - 10px); }
-    .sidebar-screw.bl { top: calc(100% - 10px); left: 10px; }
-    .sidebar-screw.br { top: calc(100% - 10px); left: calc(100% - 10px); }
+    .sidebar-screw.tl { top: 8px; left: 8px; }
+    .sidebar-screw.tr { top: 8px; left: calc(100% - 8px); }
+    .sidebar-screw.ml { top: 50%; left: 8px; }
+    .sidebar-screw.mr { top: 50%; left: calc(100% - 8px); }
+    .sidebar-screw.bl { top: calc(100% - 8px); left: 8px; }
+    .sidebar-screw.br { top: calc(100% - 8px); left: calc(100% - 8px); }
     
     /* Compact glass panel with internal scrolling (never outer panel scrolling) */
     .sidebar-glass-panel {
