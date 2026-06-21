@@ -828,6 +828,64 @@ body {
 /* ==========================================================================
    BRUSHED ALUMINUM BEZEL PANEL & 3D CRT SCOPE RIMS
    ========================================================================== */
+/* Silk-screened manufacturer branding in the bottom-left corner of the metal bezel */
+.brand-label {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    z-index: 2020; /* Layered on top of the bezel plate (2000) but below screws (2200) */
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    
+    /* Apply a soft, asymmetric mask with gentle outer-edge fading and a single thin scratch */
+    -webkit-mask-image: linear-gradient(
+        105deg,
+        rgba(255, 255, 255, 0.6) 0%,      /* Faded left edge */
+        #fff 15%,
+        #fff 52%,
+        rgba(255, 255, 255, 0.45) 53%,    /* Single thin scratch */
+        #fff 54%,
+        #fff 85%,
+        rgba(255, 255, 255, 0.5) 100%     /* Faded right edge */
+    );
+    mask-image: linear-gradient(
+        105deg,
+        rgba(255, 255, 255, 0.6) 0%,
+        #fff 15%,
+        #fff 52%,
+        rgba(255, 255, 255, 0.45) 53%,
+        #fff 54%,
+        #fff 85%,
+        rgba(255, 255, 255, 0.5) 100%
+    );
+    
+    user-select: none;
+}
+
+.brand-label .brand-name {
+    font-family: "Baskerville", "Baskerville Old Face", "Hoefler Text", "Times New Roman", serif;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    letter-spacing: 0.12em;
+    color: rgba(235, 222, 195, 0.62); /* Warm yellowed/dirt-stained off-white */
+    text-shadow: 0.5px 0.5px 1px rgba(0, 0, 0, 0.6);
+    line-height: 1.1;
+}
+
+.brand-label .brand-model {
+    font-family: "Baskerville", "Baskerville Old Face", "Hoefler Text", "Times New Roman", serif;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.22em; /* Extra wide spacing for model sub-label */
+    color: rgba(235, 222, 195, 0.42); /* More faded, aged yellowed print */
+    text-shadow: 0.5px 0.5px 1px rgba(0, 0, 0, 0.6);
+    line-height: 1;
+}
+
 .radar-bezel {
     position: absolute;
     top: 0;
@@ -1036,6 +1094,22 @@ body {
     /* Override scope size for mobile to maximize screen area (min(54dvh, 92vw)) */
     .radar-viewport {
         --scope-size: min(54dvh, 92vw);
+    }
+    
+    /* Reposition and size brand label for mobile vertical stack layout */
+    .brand-label {
+        bottom: 16px;
+        left: 16px;
+    }
+    
+    .brand-label .brand-name {
+        font-size: 0.78rem;
+        letter-spacing: 0.1rem;
+    }
+    
+    .brand-label .brand-model {
+        font-size: 0.58rem;
+        letter-spacing: 0.18em;
     }
 }
 
