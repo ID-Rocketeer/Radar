@@ -432,7 +432,7 @@ body {
 
 .list-headers {
     display: grid;
-    grid-template-columns: 70px 60px 50px 1fr; /* Compact column widths to buy back space for distance */
+    grid-template-columns: 80px 70px 60px 1fr; /* Comfortable column widths with ample room for data */
     font-size: 0.75rem;
     color: var(--phosphor-dim-text);
     padding: 0 5px 3px 5px;
@@ -445,6 +445,7 @@ body {
     display: flex;
     flex-direction: column;
     margin-top: 4px;
+    padding-bottom: 6px;
 }
 
 .empty-list-message, .empty-telemetry {
@@ -457,7 +458,7 @@ body {
 
 .target-item {
     display: grid;
-    grid-template-columns: 70px 60px 50px 1fr; /* Matches header columns to align data precisely */
+    grid-template-columns: 80px 70px 60px 1fr; /* Matches header columns to align data precisely */
     font-size: 0.85rem;
     padding: 6px 5px;
     border-bottom: 1px solid rgba(0, 255, 85, 0.05);
@@ -1088,12 +1089,12 @@ body {
         height: 1.3px;
     }
     
-    .sidebar-screw.tl { top: 14px; left: 14px; }
-    .sidebar-screw.tr { top: 14px; left: calc(100% - 14px); }
-    .sidebar-screw.ml { top: 50%; left: 14px; }
-    .sidebar-screw.mr { top: 50%; left: calc(100% - 14px); }
-    .sidebar-screw.bl { top: calc(100% - 14px); left: 14px; }
-    .sidebar-screw.br { top: calc(100% - 14px); left: calc(100% - 14px); }
+    .sidebar-screw.tl { top: 12px; left: 12px; }
+    .sidebar-screw.tr { top: 12px; left: calc(100% - 12px); }
+    .sidebar-screw.ml { top: 50%; left: 12px; }
+    .sidebar-screw.mr { top: 50%; left: calc(100% - 12px); }
+    .sidebar-screw.bl { top: calc(100% - 12px); left: 12px; }
+    .sidebar-screw.br { top: calc(100% - 12px); left: calc(100% - 12px); }
     
     /* Reduce glass panel internal padding slightly */
     .sidebar-glass-panel {
@@ -1107,8 +1108,8 @@ body {
     
     /* Reduce vertical padding of panel sections */
     .sidebar-panel {
-        padding: 5px 0;
-        gap: 5px;
+        padding: 8px 0;
+        gap: 6px;
     }
     
     /* Allow configuration grids to be more compact and scale font sizes */
@@ -1188,12 +1189,12 @@ body {
         width: 6px;
         height: 1.1px;
     }
-    .sidebar-screw.tl { top: 11px; left: 11px; }
-    .sidebar-screw.tr { top: 11px; left: calc(100% - 11px); }
-    .sidebar-screw.ml { top: 50%; left: 11px; }
-    .sidebar-screw.mr { top: 50%; left: calc(100% - 11px); }
-    .sidebar-screw.bl { top: calc(100% - 11px); left: 11px; }
-    .sidebar-screw.br { top: calc(100% - 11px); left: calc(100% - 11px); }
+    .sidebar-screw.tl { top: 10px; left: 10px; }
+    .sidebar-screw.tr { top: 10px; left: calc(100% - 10px); }
+    .sidebar-screw.ml { top: 50%; left: 10px; }
+    .sidebar-screw.mr { top: 50%; left: calc(100% - 10px); }
+    .sidebar-screw.bl { top: calc(100% - 10px); left: 10px; }
+    .sidebar-screw.br { top: calc(100% - 10px); left: calc(100% - 10px); }
     
     /* Compact glass panel with internal scrolling (never outer panel scrolling) */
     .sidebar-glass-panel {
@@ -1215,8 +1216,8 @@ body {
     }
     
     .sidebar-panel {
-        padding: 3px 0;
-        gap: 3px;
+        padding: 6px 0;
+        gap: 4px;
     }
     
     .control-grid {
@@ -1239,13 +1240,13 @@ body {
     
     .target-list-panel {
         flex: 1 1 0%;
-        min-height: 120px;
+        min-height: 136px;
         max-height: none;
-        overflow: hidden;
+        overflow: visible;
     }
     
     .target-list {
-        min-height: 80px;
+        min-height: 78px;
         max-height: none;
     }
     
@@ -2019,6 +2020,28 @@ body {
         gap: 4px !important;
     }
     
+    /* Scale down screws to fit the extremely tight 10px/16px padding on phones in landscape */
+    .sidebar-screw {
+        width: 8px !important;
+        height: 8px !important;
+    }
+    .sidebar-screw::before {
+        top: 0.6px !important;
+        left: 0.6px !important;
+        right: 0.6px !important;
+        bottom: 0.6px !important;
+    }
+    .sidebar-screw::after {
+        width: 5px !important;
+        height: 0.9px !important;
+    }
+    .sidebar-screw.tl { top: 6px !important; left: 11px !important; }
+    .sidebar-screw.tr { top: 6px !important; left: calc(100% - 11px) !important; }
+    .sidebar-screw.ml { top: 50% !important; left: 11px !important; }
+    .sidebar-screw.mr { top: 50% !important; left: calc(100% - 11px) !important; }
+    .sidebar-screw.bl { top: calc(100% - 6px) !important; left: 11px !important; }
+    .sidebar-screw.br { top: calc(100% - 6px) !important; left: calc(100% - 11px) !important; }
+    
     .sidebar-header {
         margin-bottom: 4px !important;
     }
@@ -2058,10 +2081,11 @@ body {
     
     .target-list-panel {
         max-height: 100px !important;
+        overflow: visible !important;
     }
     
     .target-list {
-        height: 80px !important;
+        height: 60px !important;
     }
     
     .telemetry-display {
