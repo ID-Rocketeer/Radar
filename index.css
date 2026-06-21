@@ -391,6 +391,25 @@ body {
     background: rgba(0, 255, 85, 0.25);
 }
 
+/* Toggle buttons (TRAILS / FULLSCREEN) inactive states */
+#trail-toggle, #fullscreen-toggle {
+    color: var(--phosphor-dim-text);
+}
+
+#trail-toggle:hover:not(.active), #fullscreen-toggle:hover:not(.active) {
+    color: var(--phosphor-green-bright);
+}
+
+/* Active states for retro buttons */
+.retro-btn.active,
+#trail-toggle.active,
+#fullscreen-toggle.active {
+    color: var(--phosphor-green);
+    border-color: var(--phosphor-green);
+    background: rgba(0, 255, 85, 0.08);
+    box-shadow: 0 0 4px var(--phosphor-glow);
+}
+
 /* Filter buttons */
 .filter-buttons {
     display: grid;
@@ -550,8 +569,8 @@ body {
     transform-style: preserve-3d;
     backface-visibility: hidden;
     
-    /* Dynamic scope size variable (94% of remaining height/width to maximize screen space while keeping base plate margin) */
-    --scope-size: min(94dvh, calc(0.94 * (100vw - 480px)));
+    /* Dynamic scope size variable (95% of remaining height/width to maximize screen space while keeping base plate margin) */
+    --scope-size: min(95dvh, calc(0.95 * (100vw - 480px)));
 }
 
 #map {
@@ -1027,9 +1046,123 @@ body {
 }
 
 /* ==========================================================================
+   /* ==========================================================================
+   TACTILE MOUNTING SCREWS & RECESSED POCKETS (Veracity details)
+   ========================================================================== */
+.mounting-screw {
+    width: 24px; /* Recessed pocket outer diameter */
+    height: 24px; /* Recessed pocket outer diameter */
+    border-radius: 50%;
+    position: absolute;
+    pointer-events: none;
+    
+    /* Deep recessed shadow for the pocket hole in the metal sheet */
+    background: #0b0d0c;
+    box-shadow: 
+        inset 2px 2.5px 4px rgba(0, 0, 0, 0.95), /* Inner shadow of the pocket walls */
+        inset -1.5px -1.5px 3px rgba(255, 255, 255, 0.05), /* Subtle inner edge highlight */
+        0 1px 1px rgba(255, 255, 255, 0.15), /* Beveled metal rim light catcher */
+        0 0 0 1px #040504; /* Dark outline of the hole */
+}
+
+/* The physical screw head itself, nested inside the pocket */
+.mounting-screw::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px; /* 20px screw head centered inside the 24px pocket */
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #cfd4d1 0%, #888d8a 40%, #454a47 75%, #1c211e 100%);
+    box-shadow: 
+        1px 1.5px 2px rgba(0, 0, 0, 0.8), /* Shadow cast by the screw head inside the pocket */
+        inset -1.5px -1.5px 2px rgba(0, 0, 0, 0.65), /* Screw head bevel shadow */
+        inset 1px 1px 1px rgba(255, 255, 255, 0.25); /* Screw head top highlight */
+}
+
+/* Recessed flathead screwdriver drive slot */
+.mounting-screw::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 13px; /* Scaled slot width */
+    height: 2.5px; /* Scaled slot height */
+    background: #090c0b;
+    transform: translate(-50%, -50%) rotate(var(--slot-rot, 0deg));
+    box-shadow: 0 0.8px 0.8px rgba(255, 255, 255, 0.2); /* Light reflection on slot lower edge */
+    z-index: 5;
+}
+
+/* Weathering variations using nth-child to give each screw head organic texture */
+/* Screw 1: Slightly oxidized/rusted in crevices */
+.mounting-screw:nth-child(3n+1)::before {
+    background: radial-gradient(circle at 35% 35%, #c2c7c4 0%, #7e8380 35%, #5c5245 70%, #211e1a 100%);
+}
+/* Screw 2: Darker, grimy/greasy finish */
+.mounting-screw:nth-child(3n+2)::before {
+    background: radial-gradient(circle at 35% 35%, #a6aba8 0%, #636865 40%, #2d3330 75%, #0f1411 100%);
+}
+/* Screw 3: Slightly worn metallic sheen (shinier center) */
+.mounting-screw:nth-child(3n)::before {
+    background: radial-gradient(circle at 35% 35%, #e1e6e3 0%, #909592 45%, #3c413e 80%, #171c19 100%);
+}
+
+/* Adjust z-index of scope screws, apply Z-translation, and scale size proportionally */
+.scope-screw {
+    width: max(10px, calc(var(--scope-size) * 0.0197)); /* Scale scope screws to 1.97% of scope size, clamp at min 10px */
+    height: max(10px, calc(var(--scope-size) * 0.0197));
+    transform: translate(-50%, -50%) translateZ(5px);
+    z-index: 2025;
+}
+
+/* For scope screws, override pixel-based offsets with percentage-based proportions */
+.scope-screw::before {
+    top: 8.33%;
+    left: 8.33%;
+    right: 8.33%;
+    bottom: 8.33%; /* 13/16 ratio head size */
+}
+
+.scope-screw::after {
+    width: 54%; /* Scaled slot width */
+    height: 10%; /* Scaled slot height */
+}
+
+/* Adjust z-index of sidebar screws, apply Z-translation, and scale size down to 2/3 */
+.sidebar-screw {
+    width: 16px; /* Scaled pocket size */
+    height: 16px; /* Scaled pocket size */
+    z-index: 25;
+    transform: translate(-50%, -50%) translateZ(5px);
+}
+
+/* Scale screw head (::before) and driver slot (::after) for the sidebar screws */
+.sidebar-screw::before {
+    top: 1.5px;
+    left: 1.5px;
+    right: 1.5px;
+    bottom: 1.5px; /* 13px screw head inside 16px pocket */
+}
+.sidebar-screw::after {
+    width: 9px; /* Scaled slot width */
+    height: 1.7px; /* Scaled slot height */
+}
+
+/* Sidebar Screws specific centering coordinates (pulled in to center perfectly in the flat 30px bezel, excluding the 6px outer raised rim) */
+.sidebar-screw.tl { top: 18px; left: 18px; }
+.sidebar-screw.tr { top: 18px; left: calc(100% - 18px); }
+.sidebar-screw.ml { top: 50%; left: 18px; }
+.sidebar-screw.mr { top: 50%; left: calc(100% - 18px); }
+.sidebar-screw.bl { top: calc(100% - 18px); left: 18px; }
+.sidebar-screw.br { top: calc(100% - 18px); left: calc(100% - 18px); }
+/* ==========================================================================
    MOBILE RESPONSIVENESS & PORTRAIT TOUCH LAYOUT
    ========================================================================== */
-@media (max-width: 768px) {
+@media (min-height: 981px) and (max-width: 1077px),
+       (max-height: 980px) and (max-width: 853px),
+       (max-width: 768px) {
     body {
         overflow: auto !important;
         height: auto !important;
@@ -1169,12 +1302,12 @@ body {
 }
 
 /* Height-constrained desktop/tablet viewports in landscape */
-@media (max-height: 950px) and (min-width: 769px) {
+@media (max-height: 980px) and (min-width: 854px) {
     .sidebar-column {
         width: 380px;
     }
     .radar-viewport {
-        --scope-size: min(94dvh, calc(0.94 * (100vw - 380px)));
+        --scope-size: min(95dvh, calc(0.95 * (100vw - 380px)));
     }
 
     /* Scale the label's relative padding and apply GPU transform to children to bypass browser minimum font size limits */
@@ -1299,7 +1432,7 @@ body {
 }
 
 /* Fallback for extremely short landscape viewports (e.g. height-constrained window) */
-@media (max-height: 820px) and (min-width: 769px) {
+@media (max-height: 860px) and (min-width: 854px) {
     /* Scale stickers down to fit small vertical heights without being hidden */
     .sidebar-top-label-container,
     .sidebar-bottom-label-container {
@@ -1423,7 +1556,7 @@ body {
 }
 
 /* Height-constrained viewports down to 600px */
-@media (max-height: 600px) and (min-width: 769px) {
+@media (max-height: 600px) and (min-width: 854px) {
     .brand-label {
         bottom: 8px;
         left: 10px;
@@ -1440,7 +1573,7 @@ body {
 }
 
 /* Extremely height-constrained landscape viewports (e.g. landscape on phone or short window) */
-@media (max-height: 450px) and (min-width: 769px) {
+@media (max-height: 450px) and (min-width: 854px) {
     .brand-label {
         bottom: 6px;
         left: 8px;
@@ -2096,118 +2229,6 @@ body {
         0 0 0 1px rgba(0, 0, 0, 0.5); /* Outer boundary separation */
 }
 
-/* ==========================================================================
-   /* ==========================================================================
-   TACTILE MOUNTING SCREWS & RECESSED POCKETS (Veracity details)
-   ========================================================================== */
-.mounting-screw {
-    width: 24px; /* Recessed pocket outer diameter */
-    height: 24px; /* Recessed pocket outer diameter */
-    border-radius: 50%;
-    position: absolute;
-    pointer-events: none;
-    
-    /* Deep recessed shadow for the pocket hole in the metal sheet */
-    background: #0b0d0c;
-    box-shadow: 
-        inset 2px 2.5px 4px rgba(0, 0, 0, 0.95), /* Inner shadow of the pocket walls */
-        inset -1.5px -1.5px 3px rgba(255, 255, 255, 0.05), /* Subtle inner edge highlight */
-        0 1px 1px rgba(255, 255, 255, 0.15), /* Beveled metal rim light catcher */
-        0 0 0 1px #040504; /* Dark outline of the hole */
-}
-
-/* The physical screw head itself, nested inside the pocket */
-.mounting-screw::before {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    right: 2px;
-    bottom: 2px; /* 20px screw head centered inside the 24px pocket */
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #cfd4d1 0%, #888d8a 40%, #454a47 75%, #1c211e 100%);
-    box-shadow: 
-        1px 1.5px 2px rgba(0, 0, 0, 0.8), /* Shadow cast by the screw head inside the pocket */
-        inset -1.5px -1.5px 2px rgba(0, 0, 0, 0.65), /* Screw head bevel shadow */
-        inset 1px 1px 1px rgba(255, 255, 255, 0.25); /* Screw head top highlight */
-}
-
-/* Recessed flathead screwdriver drive slot */
-.mounting-screw::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 13px; /* Scaled slot width */
-    height: 2.5px; /* Scaled slot height */
-    background: #090c0b;
-    transform: translate(-50%, -50%) rotate(var(--slot-rot, 0deg));
-    box-shadow: 0 0.8px 0.8px rgba(255, 255, 255, 0.2); /* Light reflection on slot lower edge */
-    z-index: 5;
-}
-
-/* Weathering variations using nth-child to give each screw head organic texture */
-/* Screw 1: Slightly oxidized/rusted in crevices */
-.mounting-screw:nth-child(3n+1)::before {
-    background: radial-gradient(circle at 35% 35%, #c2c7c4 0%, #7e8380 35%, #5c5245 70%, #211e1a 100%);
-}
-/* Screw 2: Darker, grimy/greasy finish */
-.mounting-screw:nth-child(3n+2)::before {
-    background: radial-gradient(circle at 35% 35%, #a6aba8 0%, #636865 40%, #2d3330 75%, #0f1411 100%);
-}
-/* Screw 3: Slightly worn metallic sheen (shinier center) */
-.mounting-screw:nth-child(3n)::before {
-    background: radial-gradient(circle at 35% 35%, #e1e6e3 0%, #909592 45%, #3c413e 80%, #171c19 100%);
-}
-
-/* Adjust z-index of scope screws, apply Z-translation, and scale size proportionally */
-.scope-screw {
-    width: max(10px, calc(var(--scope-size) * 0.0197)); /* Scale scope screws to 1.97% of scope size, clamp at min 10px */
-    height: max(10px, calc(var(--scope-size) * 0.0197));
-    transform: translate(-50%, -50%) translateZ(5px);
-    z-index: 2025;
-}
-
-/* For scope screws, override pixel-based offsets with percentage-based proportions */
-.scope-screw::before {
-    top: 8.33%;
-    left: 8.33%;
-    right: 8.33%;
-    bottom: 8.33%; /* 13/16 ratio head size */
-}
-
-.scope-screw::after {
-    width: 54%; /* Scaled slot width */
-    height: 10%; /* Scaled slot height */
-}
-
-/* Adjust z-index of sidebar screws, apply Z-translation, and scale size down to 2/3 */
-.sidebar-screw {
-    width: 16px; /* Scaled pocket size */
-    height: 16px; /* Scaled pocket size */
-    z-index: 25;
-    transform: translate(-50%, -50%) translateZ(5px);
-}
-
-/* Scale screw head (::before) and driver slot (::after) for the sidebar screws */
-.sidebar-screw::before {
-    top: 1.5px;
-    left: 1.5px;
-    right: 1.5px;
-    bottom: 1.5px; /* 13px screw head inside 16px pocket */
-}
-.sidebar-screw::after {
-    width: 9px; /* Scaled slot width */
-    height: 1.7px; /* Scaled slot height */
-}
-
-/* Sidebar Screws specific centering coordinates (pulled in to center perfectly in the flat 30px bezel, excluding the 6px outer raised rim) */
-.sidebar-screw.tl { top: 18px; left: 18px; }
-.sidebar-screw.tr { top: 18px; left: calc(100% - 18px); }
-.sidebar-screw.ml { top: 50%; left: 18px; }
-.sidebar-screw.mr { top: 50%; left: calc(100% - 18px); }
-.sidebar-screw.bl { top: calc(100% - 18px); left: 18px; }
-.sidebar-screw.br { top: calc(100% - 18px); left: calc(100% - 18px); }
 
 /* Optimize sidebar layout and suppress stickers in landscape mode on phones to maximize vertical space */
 @media (max-height: 480px) and (orientation: landscape) {

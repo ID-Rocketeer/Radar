@@ -461,6 +461,7 @@ function initControls() {
     trailBtn.addEventListener('click', () => {
         trailsEnabled = !trailsEnabled;
         trailBtn.innerHTML = `TRAILS: ${trailsEnabled ? 'ON' : 'OFF'}`;
+        trailBtn.classList.toggle('active', trailsEnabled);
         
         // Hide or show all current trails
         Object.values(activeAircraft).forEach(ac => {
@@ -499,6 +500,7 @@ function initControls() {
         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
         if (fullscreenBtn) {
             fullscreenBtn.innerHTML = `FULLSCREEN: ${isFullscreen ? 'ON' : 'OFF'}`;
+            fullscreenBtn.classList.toggle('active', isFullscreen);
         }
         if (map) {
             setTimeout(() => {
@@ -512,6 +514,7 @@ function initControls() {
 
     document.addEventListener('fullscreenchange', updateFullscreenUI);
     document.addEventListener('webkitfullscreenchange', updateFullscreenUI);
+    updateFullscreenUI();
 
     // Filter Buttons Selection
     const filterBtns = document.querySelectorAll('.filter-btn');
@@ -598,8 +601,8 @@ function getBezelDiameter() {
     if (window.innerWidth <= 768) {
         return Math.min(window.innerHeight * 0.54, window.innerWidth * 0.92);
     } else {
-        const sidebarWidth = window.innerHeight <= 950 ? 380 : 480;
-        return Math.min(window.innerHeight * 0.94, (window.innerWidth - sidebarWidth) * 0.94);
+        const sidebarWidth = window.innerHeight <= 980 ? 380 : 480;
+        return Math.min(window.innerHeight * 0.95, (window.innerWidth - sidebarWidth) * 0.95);
     }
 }
 
