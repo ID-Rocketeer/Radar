@@ -42,15 +42,14 @@
     --map-contrast-setup: 1.4; /* Tweakable map contrast during location calibration */
 
     /* The base textured black wrinkle paint (seamless across components) */
-    --wrinkle-paint-bg: 
+    --wrinkle-paint-bg:
         /* Specular light sheen */
         linear-gradient(
             135deg,
-            rgba(255, 255, 255, 0.04) 0%,
-            rgba(255, 255, 255, 0.0) 35%,
-            rgba(0, 0, 0, 0.55) 50%,
-            rgba(255, 255, 255, 0.03) 70%,
-            rgba(0, 0, 0, 0.7) 100%
+            rgba(255, 255, 255, 0.05) 0%,
+            rgba(255, 255, 255, 0.0) 45%,
+            rgba(0, 0, 0, 0.45) 80%,
+            rgba(0, 0, 0, 0.75) 100%
         ),
         /* Micro crackle-finish paint texture */
         repeating-linear-gradient(
@@ -185,8 +184,8 @@ body {
     
     /* 3D shadows to show the bezel panel raised above the base plate */
     box-shadow: 
-        0 8px 24px rgba(0, 0, 0, 0.85), 
-        inset 1px 1px 1.5px rgba(255, 255, 255, 0.06);
+        4px 6px 20px rgba(0, 0, 0, 0.85), 
+        inset 1.5px 1.5px 1px rgba(255, 255, 255, 0.08);
     
     /* Weathered black wrinkle-painted chassis with sidebar-specific scratch */
     background: 
@@ -208,8 +207,8 @@ body {
     border-radius: 4px;
     padding: 15px;
     box-shadow: 
-        0 1px 0 rgba(255, 255, 255, 0.04) inset, /* Top edge specular highlight */
-        0 2px 8px rgba(0, 0, 0, 0.7) inset; /* Inset depth shadow */
+        1px 1px 0 rgba(255, 255, 255, 0.04) inset, /* Top-left edge specular highlight */
+        1px 2px 8px rgba(0, 0, 0, 0.7) inset; /* Inset depth shadow from top-left */
     overflow-y: auto; /* Allow the entire sidebar to scroll if contents cannot fit */
 }
 
@@ -997,11 +996,11 @@ body {
     border-color: #141a16;
     border-width: calc(var(--scope-size) * 0.0256); /* Heavy metal rim border scales to 2.56% of scope size */
     box-shadow: 
-        0 8px 24px rgba(0, 0, 0, 0.8), /* Depth shadow onto the brushed aluminum panel */
+        5px 6px 20px rgba(0, 0, 0, 0.8), /* Cast shadow down and right (SE) */
         0 0 0 1px rgba(255, 255, 255, 0.08), /* Subtle rim outer highlights */
-        0 4px 12px rgba(0, 0, 0, 0.95) inset, /* Deep inner bezel depth shadow */
-        0 -2px 6px rgba(255, 255, 255, 0.15) inset, /* Specular edge lighting inside rim */
-        0 2px 4px rgba(255, 255, 255, 0.08), /* Outer bezel bevel light catcher */
+        2.5px 3px 12px rgba(0, 0, 0, 0.95) inset, /* Deep inner bezel depth shadow from top-left */
+        -1.5px -1.5px 6px rgba(255, 255, 255, 0.15) inset, /* Specular edge lighting inside bottom-right rim */
+        1.5px 2px 4px rgba(255, 255, 255, 0.08), /* Outer bezel bevel light catcher at top-left */
         inset 0 0 0 2px #202b23; /* Inner circular detail ridge (fixed at 2px to stay sharp on mobile) */
     
     /* Simulate overhead specular reflections */
@@ -1095,19 +1094,8 @@ body {
     z-index: 5;
 }
 
-/* Weathering variations using nth-child to give each screw head organic texture */
-/* Screw 1: Slightly oxidized/rusted in crevices */
-.mounting-screw:nth-child(3n+1)::before {
-    background: radial-gradient(circle at 35% 35%, #c2c7c4 0%, #7e8380 35%, #5c5245 70%, #211e1a 100%);
-}
-/* Screw 2: Darker, grimy/greasy finish */
-.mounting-screw:nth-child(3n+2)::before {
-    background: radial-gradient(circle at 35% 35%, #a6aba8 0%, #636865 40%, #2d3330 75%, #0f1411 100%);
-}
-/* Screw 3: Slightly worn metallic sheen (shinier center) */
-.mounting-screw:nth-child(3n)::before {
-    background: radial-gradient(circle at 35% 35%, #e1e6e3 0%, #909592 45%, #3c413e 80%, #171c19 100%);
-}
+/* Weathering variations using nth-child were removed to ensure all screws share a consistent 
+   metallic specular highlight brightness and align with the North West light source. */
 
 /* Adjust z-index of scope screws, apply Z-translation, and scale size proportionally */
 .scope-screw {
