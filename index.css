@@ -131,7 +131,7 @@ body {
 /* ==========================================================================
    LAYOUT STRUCTURE
    ========================================================================== */
-.radar-container {
+.sidebar-base-plate {
     display: flex;
     width: 100vw;
     height: 100vh;
@@ -168,7 +168,7 @@ body {
     flex-shrink: 0;
 }
 
-.radar-sidebar {
+.sidebar-bezel {
     width: calc(100% - 20px); /* 10px margins left/right within sidebar-column */
     flex: 1 1 0%; /* Standard flex stretching */
     min-height: 0; /* Allow the sidebar bezel to shrink if vertical space is tight */
@@ -193,7 +193,7 @@ body {
         /* Scratch 3 (middle-left, sidebar metal bezel) */
         linear-gradient(110deg, transparent 45%, rgba(0,0,0,0.65) 47%, rgba(190,195,192,0.65) 49%, rgba(255,255,255,0.8) 50%, rgba(0,0,0,0.5) 52%, transparent 55%) no-repeat left 15px top 320px / 80px 8px,
         var(--wrinkle-paint-bg);
-    background-attachment: scroll, fixed, fixed, fixed, fixed;
+    background-attachment: scroll, scroll, scroll, scroll, scroll;
 }
 
 .sidebar-glass-panel {
@@ -746,7 +746,7 @@ body {
 .aircraft-marker-container {
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
 }
 
 .aircraft-marker {
@@ -916,7 +916,7 @@ body {
     display: none;
 }
 
-.radar-bezel {
+.radar-base-plate {
     position: absolute;
     top: 0;
     left: 0;
@@ -949,7 +949,7 @@ body {
 }
 
 /* Base style for centered scope overlay components */
-.radar-scope-rim, 
+.radar-scope-bezel, 
 .radar-glass-edge, 
 .radar-glass-glare {
     border-radius: 50%;
@@ -961,8 +961,8 @@ body {
     box-sizing: border-box;
 }
 
-/* Sizing for the outer rim (D) using the dynamic scope size variable */
-.radar-scope-rim {
+/* Sizing for the outer scope bezel (D) using the dynamic scope size variable */
+.radar-scope-bezel {
     width: var(--scope-size);
     height: var(--scope-size);
 }
@@ -988,8 +988,8 @@ body {
     overflow: visible;
 }
 
-/* 3D Extruded Scope Bezel Rim */
-.radar-scope-rim {
+/* 3D Extruded Scope Bezel */
+.radar-scope-bezel {
     z-index: 2010;
     overflow: visible !important; /* Ensure child elements do not clip */
     /* Multilayered shadows and borders to simulate a heavy, rounded plastic/metallic rim */
@@ -1168,7 +1168,7 @@ body {
         height: auto !important;
     }
 
-    .radar-container {
+    .sidebar-base-plate {
         flex-direction: column-reverse;
         overflow: visible !important;
         height: auto !important;
@@ -1183,7 +1183,7 @@ body {
         box-sizing: border-box;
     }
     
-    .radar-sidebar {
+    .sidebar-bezel {
         width: 100%;
         height: auto;
         margin: 10px 0;
@@ -1352,7 +1352,7 @@ body {
     }
     
     /* Reduce internal sidebar bezel padding and gaps */
-    .radar-sidebar {
+    .sidebar-bezel {
         padding: 20px;
         gap: 10px;
     }
@@ -1467,7 +1467,7 @@ body {
     }
 
     /* Pull bezel margins and padding tighter to screen edges */
-    .radar-sidebar {
+    .sidebar-bezel {
         margin: 5px 10px;
         padding: 16px;
         gap: 8px;
@@ -2211,7 +2211,7 @@ body {
 /* ==========================================================================
    SIDEBAR PANEL BEZEL FRAME (Engraved joint seam)
    ========================================================================== */
-.radar-sidebar::after {
+.sidebar-bezel::after {
     content: '';
     position: absolute;
     top: 3px;
@@ -2237,7 +2237,7 @@ body {
         display: none !important;
     }
     
-    .radar-sidebar {
+    .sidebar-bezel {
         padding: 10px 16px !important;
         gap: 4px !important;
     }

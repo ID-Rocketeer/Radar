@@ -591,7 +591,7 @@ function initControls() {
 // Helper to get the exact rendered width of the scope bezel rim from the DOM,
 // falling back to viewport-based calculations if the DOM is not fully ready yet.
 function getBezelDiameter() {
-    const rimEl = document.querySelector('.radar-scope-rim');
+    const rimEl = document.querySelector('.radar-scope-bezel');
     if (rimEl) {
         const rect = rimEl.getBoundingClientRect();
         if (rect.width > 0) {
@@ -1299,7 +1299,7 @@ function updateMarkerVisibility(hex) {
                     </div>
                 `,
                 iconSize: [30, 45],
-                iconAnchor: [15, 22]
+                iconAnchor: [15, 10]
             });
             ac.marker = L.marker([ac.lat, ac.lon], { icon: markerIcon }).addTo(map);
             ac.marker.on('click', () => selectAircraft(ac.hex));
