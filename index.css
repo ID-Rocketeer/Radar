@@ -993,7 +993,7 @@ body {
     overflow: visible !important; /* Ensure child elements do not clip */
     /* Multilayered shadows and borders to simulate a heavy, rounded plastic/metallic rim */
     border-style: solid;
-    border-color: #141a16;
+    border-color: #151515;
     border-width: calc(var(--scope-size) * 0.0256); /* Heavy metal rim border scales to 2.56% of scope size */
     box-shadow: 
         5px 6px 20px rgba(0, 0, 0, 0.8), /* Cast shadow down and right (SE) */
@@ -1001,7 +1001,7 @@ body {
         2.5px 3px 12px rgba(0, 0, 0, 0.95) inset, /* Deep inner bezel depth shadow from top-left */
         -1.5px -1.5px 6px rgba(255, 255, 255, 0.15) inset, /* Specular edge lighting inside bottom-right rim */
         1.5px 2px 4px rgba(255, 255, 255, 0.08), /* Outer bezel bevel light catcher at top-left */
-        inset 0 0 0 2px #202b23; /* Inner circular detail ridge (fixed at 2px to stay sharp on mobile) */
+        inset 0 0 0 2px #242424; /* Inner circular detail ridge (fixed at 2px to stay sharp on mobile) */
     
     /* Simulate overhead specular reflections */
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 50%, rgba(0, 0, 0, 0.45) 100%);
