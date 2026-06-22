@@ -847,10 +847,10 @@ body {
 /* ==========================================================================
    BRUSHED ALUMINUM BEZEL PANEL & 3D CRT SCOPE RIMS
    ========================================================================== */
-/* Silk-screened manufacturer branding in the bottom-left corner of the metal bezel */
+/* Silk-screened manufacturer branding in the top-left corner of the metal bezel */
 .brand-label {
     position: absolute;
-    bottom: 24px;
+    top: 24px;
     left: 24px;
     z-index: 2020; /* Layered on top of the bezel plate (2000) but below screws (2200) */
     pointer-events: none;
@@ -1169,7 +1169,7 @@ body {
     }
 
     .radar-container {
-        flex-direction: column;
+        flex-direction: column-reverse;
         overflow: visible !important;
         height: auto !important;
     }
@@ -1312,13 +1312,13 @@ body {
 
     /* Scale the label's relative padding and apply GPU transform to children to bypass browser minimum font size limits */
     .brand-label {
-        bottom: 18px;
+        top: 18px;
         left: 18px;
         gap: 2px;
     }
     .brand-label .brand-name {
         transform: scale(0.85);
-        transform-origin: left bottom;
+        transform-origin: left top;
     }
     .brand-label .brand-model {
         transform: scale(0.85);
@@ -1453,13 +1453,13 @@ body {
 
     /* Scale and position the brand label for shorter viewports */
     .brand-label {
-        bottom: 12px;
+        top: 12px;
         left: 14px;
         gap: 2px;
     }
     .brand-label .brand-name {
         transform: scale(0.72);
-        transform-origin: left bottom;
+        transform-origin: left top;
     }
     .brand-label .brand-model {
         transform: scale(0.72);
@@ -1558,13 +1558,13 @@ body {
 /* Height-constrained viewports down to 600px */
 @media (max-height: 600px) and (min-width: 854px) {
     .brand-label {
-        bottom: 8px;
+        top: 8px;
         left: 10px;
         gap: 1.5px;
     }
     .brand-label .brand-name {
         transform: scale(0.55);
-        transform-origin: left bottom;
+        transform-origin: left top;
     }
     .brand-label .brand-model {
         transform: scale(0.55);
@@ -1575,13 +1575,13 @@ body {
 /* Extremely height-constrained landscape viewports (e.g. landscape on phone or short window) */
 @media (max-height: 450px) and (min-width: 854px) {
     .brand-label {
-        bottom: 6px;
+        top: 6px;
         left: 8px;
         gap: 1px;
     }
     .brand-label .brand-name {
         transform: scale(0.42);
-        transform-origin: left bottom;
+        transform-origin: left top;
     }
     .brand-label .brand-model {
         transform: scale(0.42);
