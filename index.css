@@ -2455,4 +2455,12 @@ body {
     opacity: var(--map-opacity-setup) !important;
 }
 
+/* Ensure selected aircraft markers and their tags remain persistently visible and bright */
+.aircraft-marker.selected {
+    opacity: 1 !important;
+}
+.aircraft-marker.selected .aircraft-label {
+    opacity: 1 !important;
+}
+
 

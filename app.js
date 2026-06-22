@@ -230,8 +230,10 @@ function updateUIConfigurationValues() {
         else lonEl.innerText = HOME_LON.toFixed(5);
     }
     if (rangeEl) {
-        if (rangeEl.tagName === 'INPUT') rangeEl.value = RANGE_NM.toFixed(1);
-        else rangeEl.innerText = `${RANGE_NM} NM`;
+        const rangeVal = getDisplayedRange();
+        const formattedVal = rangeVal < 10 ? rangeVal.toFixed(3) : rangeVal.toFixed(1);
+        if (rangeEl.tagName === 'INPUT') rangeEl.value = formattedVal;
+        else rangeEl.innerText = `${formattedVal} NM`;
     }
 }
 
@@ -342,6 +344,10 @@ function initializeRadarSystem() {
             });
 
             // Clear active target tracking registry and bearings, and start fresh
+            Object.values(activeAircraft).forEach(ac => {
+                if (ac.marker && map.hasLayer(ac.marker)) map.removeLayer(ac.marker);
+                if (ac.trail && map.hasLayer(ac.trail)) map.removeLayer(ac.trail);
+            });
             activeAircraft = {};
             bearingBuckets = Array.from({ length: 360 }, () => new Set());
             selectedHex = null;
@@ -441,7 +447,14 @@ function initMap() {
     document.getElementById('zoom-out').addEventListener('click', () => map.zoomOut());
 
     // Bind zoom/pan events to dynamically update marker visibility (viewport pruning) and displayed range
+    // When not in location calibration mode, enforce that the map center remains locked exactly on Home coordinates.
     map.on('moveend zoomend', () => {
+        if (!isSelectionMode) {
+            const center = map.getCenter();
+            if (Math.abs(center.lat - HOME_LAT) > 0.00001 || Math.abs(center.lng - HOME_LON) > 0.00001) {
+                map.setView([HOME_LAT, HOME_LON], map.getZoom(), { animate: false });
+            }
+        }
         updateMapMarkersVisibility();
         updateDisplayedRange();
     });
@@ -542,7 +555,8 @@ function initControls() {
             factors.forEach((factor, idx) => {
                 const ringValEl = document.getElementById(`ring-val-${idx + 1}`);
                 if (ringValEl) {
-                    ringValEl.innerText = (factor * RANGE_NM).toFixed(1);
+                    const ringDist = factor * RANGE_NM;
+                    ringValEl.innerText = ringDist < 10 ? ringDist.toFixed(3) : ringDist.toFixed(1);
                 }
             });
 
@@ -626,7 +640,7 @@ function updateMinZoom() {
         // Always force initial load to start at the maximum configured range zoom level (disable transition animation to snap instantly)
         // If the window is resized or layout reflows while at minZoom, adjust the zoom to the new minZoomVal automatically
         if (!initialZoomSet || (isAtMinZoom && Math.abs(currentZoom - minZoomVal) > 0.001) || currentZoom < minZoomVal) {
-            map.setZoom(minZoomVal, { animate: false });
+            map.setView([HOME_LAT, HOME_LON], minZoomVal, { animate: false });
             initialZoomSet = true;
         }
     } catch (e) {
@@ -717,13 +731,17 @@ function updateDisplayedRange() {
     if (isProgrammaticChange) return;
     const rangeEl = document.getElementById('val-range');
     if (!rangeEl) return;
-    const displayedRange = getDisplayedRange();
+    
+    // Always display the actual visual range from the map
+    const rangeVal = getDisplayedRange();
+    const formattedVal = rangeVal < 10 ? rangeVal.toFixed(3) : rangeVal.toFixed(1);
+    
     if (rangeEl.tagName === 'INPUT') {
         if (document.activeElement !== rangeEl) {
-            rangeEl.value = displayedRange.toFixed(1);
+            rangeEl.value = formattedVal;
         }
     } else {
-        rangeEl.innerText = `${displayedRange.toFixed(1)} NM`;
+        rangeEl.innerText = `${formattedVal} NM`;
     }
 }
 
@@ -904,9 +922,9 @@ function triggerAircraftSweep(hex) {
         ac.dist = update.dist;
         ac.bearing = update.bearing;
 
-        // Move marker only if it is currently rendered (active on map) AND coordinates changed
-        if (ac.marker && coordChanged) {
-            ac.marker.setLatLng([ac.lat, ac.lon]);
+        // Update marker position and visibility on map
+        if (coordChanged) {
+            updateMarkerVisibility(hex);
         }
         
         // Update SVG icon rotation only if track changed
@@ -957,7 +975,8 @@ function triggerAircraftSweep(hex) {
     if (rowEl) {
         rowEl.querySelector('.col-alt').innerText = ac.isOnGround ? 'GND' : (ac.alt ? formatNumber(ac.alt) : '0');
         rowEl.querySelector('.col-spd').innerText = ac.speed ? ac.speed : '0';
-        rowEl.querySelector('.col-dst').innerText = ac.dist.toFixed(1);
+        const distVal = ac.dist;
+        rowEl.querySelector('.col-dst').innerText = distVal < 10 ? distVal.toFixed(3) : distVal.toFixed(1);
     }
 
     return needsListUpdate;
@@ -1004,8 +1023,8 @@ function processAPIResponse(data) {
         const hex = rawAc.hex;
         if (!hex) return;
 
-        // Escape outside data immediately at the ingestion level
-        const cleanHex = escapeHtml(hex);
+        // Escape outside data immediately at the ingestion level and normalize casing
+        const cleanHex = escapeHtml(hex).toLowerCase();
         freshHexes.add(cleanHex);
 
         // Normalize basic telemetry
@@ -1224,11 +1243,13 @@ function updateTargetList() {
         item.className = `target-item ${ac.mil ? 'mil' : ''} ${selectedHex === ac.hex ? 'selected' : ''}`;
 
         // Build HTML content and replace only if changed to prevent browser paint loops
+        const distVal = ac.dist;
+        const formattedDst = distVal < 10 ? distVal.toFixed(3) : distVal.toFixed(1);
         const htmlContent = `
             <span class="col-callsign lbl-callsign">${ac.callsign}</span>
             <span class="col-alt">${ac.isOnGround ? 'GND' : (ac.alt ? formatNumber(ac.alt) : '0')}</span>
             <span class="col-spd">${ac.speed ? ac.speed : '0'}</span>
-            <span class="col-dst">${ac.dist.toFixed(1)}</span>
+            <span class="col-dst">${formattedDst}</span>
         `;
         if (item.innerHTML !== htmlContent) {
             item.innerHTML = htmlContent;
@@ -1304,8 +1325,22 @@ function updateMarkerVisibility(hex) {
             ac.marker = L.marker([ac.lat, ac.lon], { icon: markerIcon }).addTo(map);
             ac.marker.on('click', () => selectAircraft(ac.hex));
         } else {
+            ac.marker.setLatLng([ac.lat, ac.lon]);
             if (!map.hasLayer(ac.marker)) {
                 ac.marker.addTo(map);
+            }
+            
+            // Synchronize rotation and icon path in the DOM in case they changed while off-screen
+            const markerDom = document.getElementById(`marker-${safeHex}`);
+            if (markerDom) {
+                const iconSvg = markerDom.querySelector('.aircraft-icon');
+                if (iconSvg) {
+                    iconSvg.style.transform = `rotate(${ac.track}deg)`;
+                }
+                const pathEl = markerDom.querySelector('.aircraft-icon path');
+                if (pathEl) {
+                    pathEl.setAttribute('d', AIRCRAFT_ICONS[ac.iconType || 'jet']);
+                }
             }
         }
 
@@ -1439,7 +1474,7 @@ function renderTelemetryDetails(hex) {
         </div>
         <div class="tel-row">
             <span class="tel-label">RANGE DISTANCE:</span>
-            <span class="tel-val">${ac.dist.toFixed(1)} NM</span>
+            <span class="tel-val">${ac.dist < 10 ? ac.dist.toFixed(3) : ac.dist.toFixed(1)} NM</span>
         </div>
         <div class="tel-row">
             <span class="tel-label">SQUAWK CODE:</span>
@@ -1556,16 +1591,17 @@ function initLocationSelection() {
         // Clamp values to valid geographical/system limits
         newLat = Math.max(-90, Math.min(90, newLat));
         newLon = Math.max(-180, Math.min(180, newLon));
-        newRange = Math.max(2, Math.min(newRange, 250));
+        const inputRangeClamped = Math.max(0.001, Math.min(newRange, 250));
 
         tempLat = newLat;
         tempLon = newLon;
-        tempRange = newRange;
+        tempRange = Math.max(2, Math.min(newRange, 250));
 
         // Sync inputs with the parsed/clamped values in case they typed out of bounds
         latInput.value = tempLat.toFixed(5);
         lonInput.value = tempLon.toFixed(5);
-        rangeInput.value = tempRange.toFixed(1);
+        const rangeVal = inputRangeClamped;
+        rangeInput.value = rangeVal < 10 ? rangeVal.toFixed(3) : rangeVal.toFixed(1);
 
         // Set the programmatic change flag to prevent race conditions during setView
         isProgrammaticChange = true;
@@ -1573,13 +1609,13 @@ function initLocationSelection() {
         // Temporarily unbind map moveend events to prevent loop feedback
         map.off('move drag zoom', handleSelectionMapChange);
 
-        // Update map zoom limits for the new latitude
+        // Update map zoom limits for the new latitude, allowing precision zoom up to level 20
         const minZoomSelection = getZoomForRange(250);
-        const maxZoomSelection = getZoomForRange(2);
+        const maxZoomSelection = 20;
         map.setMinZoom(minZoomSelection);
         map.setMaxZoom(maxZoomSelection);
 
-        const targetZoom = getZoomForRange(tempRange);
+        const targetZoom = getZoomForRange(inputRangeClamped);
         map.setView([tempLat, tempLon], targetZoom, { animate: false });
 
         // Redraw rings around the new target center
@@ -1628,7 +1664,8 @@ function enterSelectionMode() {
     isSelectionMode = true;
     tempLat = HOME_LAT;
     tempLon = HOME_LON;
-    tempRange = RANGE_NM;
+    const currentDisplayed = getDisplayedRange();
+    tempRange = Math.max(2, Math.min(currentDisplayed, 250));
 
     // Pause target polling and sweep line rotation
     stopPolling();
@@ -1674,11 +1711,14 @@ function enterSelectionMode() {
     // Display raw numerical values
     if (latInput) latInput.value = tempLat.toFixed(5);
     if (lonInput) lonInput.value = tempLon.toFixed(5);
-    if (rangeInput) rangeInput.value = tempRange.toFixed(1);
+    if (rangeInput) {
+        const rangeVal = currentDisplayed;
+        rangeInput.value = rangeVal < 10 ? rangeVal.toFixed(3) : rangeVal.toFixed(1);
+    }
 
-    // Dynamically calculate selection zoom bounds based on range parameters
+    // Dynamically calculate selection zoom bounds, allowing high-precision zoom up to level 20
     const minZoomSelection = getZoomForRange(250);
-    const maxZoomSelection = getZoomForRange(2);
+    const maxZoomSelection = 20;
     
     map.setMinZoom(minZoomSelection);
     map.setMaxZoom(maxZoomSelection);
@@ -1721,9 +1761,9 @@ function handleSelectionMapChange() {
     let displayedRange = calcDistance(tempLat, tempLon, edgeLatLng.lat, edgeLatLng.lng);
     tempRange = Math.max(2, Math.min(displayedRange, 250));
 
-    // Update map zoom limits dynamically based on current center latitude
+    // Update map zoom limits dynamically, allowing precision zoom up to level 20
     const minZoomSelection = getZoomForRange(250);
-    const maxZoomSelection = getZoomForRange(2);
+    const maxZoomSelection = 20;
     if (Math.abs(map.getMinZoom() - minZoomSelection) > 0.01) {
         map.setMinZoom(minZoomSelection);
     }
@@ -1743,7 +1783,8 @@ function handleSelectionMapChange() {
         lonInput.value = tempLon.toFixed(5);
     }
     if (rangeInput && document.activeElement !== rangeInput) {
-        rangeInput.value = tempRange.toFixed(1);
+        const rangeVal = displayedRange;
+        rangeInput.value = rangeVal < 10 ? rangeVal.toFixed(3) : rangeVal.toFixed(1);
     }
 
     // Rescale and center Leaflet range rings around the new target center
@@ -1817,7 +1858,6 @@ function exitSelectionMode(confirmChanges) {
     }
 
     // Reset zoom snap and snap the zoom level to match the new or original range ring diameter
-    initialZoomSet = false;
     updateMinZoom();
     updateSweepSize();
     updateDisplayedRange();
