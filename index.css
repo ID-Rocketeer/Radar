@@ -549,6 +549,11 @@ body {
     animation: text-pulse 1.5s infinite;
 }
 
+.tel-val.warbird {
+    color: #ff3333;
+    animation: text-pulse 1.5s infinite;
+}
+
 @keyframes text-pulse {
     0% { opacity: 0.6; }
     50% { opacity: 1; }
@@ -597,8 +602,8 @@ body {
     transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Adjust map overlay elements back to original if needed, but in our case, 
-   we want EVERYTHING on the map (tiles, aircraft, trails) to inherit the green CRT filter! */
+/* Adjust map overlay elements back to original if needed. We apply the green CRT filter 
+   only to the background tiles, keeping overlays (aircraft, trails, labels) crisp. */
 
 /* Custom styled scale control */
 .leaflet-control-scale-line {
@@ -765,7 +770,204 @@ body {
     width: 20px;
     height: 20px;
     transition: transform 0.2s ease;
+    overflow: visible !important;
 }
+
+
+.aircraft-icon path {
+    fill: var(--phosphor-green);
+}
+
+/* Display labels below plane */
+.aircraft-label {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #00ff55;
+    margin-top: 2px;
+    white-space: nowrap;
+    background-color: #010a02;
+    border: 1px solid rgba(0, 255, 85, 0.45);
+    padding: 1px 4px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+    opacity: 0;
+    transition: opacity 2s ease-out 6s; /* Stay fully readable for 6s, then fade to invisible over 2s */
+}
+
+/* Swept Excitation Flash State (Phosphor hit) */
+.aircraft-marker.swept-flash {
+    opacity: 1;
+    /* Resets transition speed for immediate excitation */
+    transition: none;
+}
+
+.leaflet-control-scale-line {
+    background: rgba(1, 10, 2, 0.85) !important;
+    border: 1px solid var(--phosphor-green) !important;
+    border-top: none !important;
+    color: var(--phosphor-green) !important;
+    font-family: var(--font-radar) !important;
+    font-size: 0.8rem !important;
+    text-shadow: 0 0 2px var(--phosphor-glow) !important;
+}
+
+.leaflet-control-attribution {
+    background: rgba(1, 10, 2, 0.8) !important;
+    color: var(--phosphor-dim) !important;
+    font-family: var(--font-radar) !important;
+    font-size: 0.65rem !important;
+}
+
+/* ==========================================================================
+   RADAR VECTOR & MAP GRAPHICS
+   ========================================================================== */
+
+/* The Radar Sweep Wedge */
+.radar-sweep-line {
+    width: 2400px;
+    height: 2400px;
+    margin-left: -1200px;
+    margin-top: -1200px;
+    position: absolute;
+    pointer-events: none;
+    transform-origin: 50% 50%;
+    z-index: 1000; /* Float above map tiles but below markers */
+    border-radius: 50%;
+    /* Clockwise sweep with trailing wedge */
+    background: conic-gradient(
+        from 0deg, 
+        transparent 270deg, 
+        rgba(0, 255, 85, 0.03) 270deg, 
+        rgba(0, 255, 85, 0.35) 360deg
+    );
+    /* Force GPU acceleration to prevent CPU paint thrashing on rotation */
+    will-change: transform;
+    transform: translateZ(0);
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* Glowing Sweep Leading Edge Line */
+.radar-sweep-line::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 50%;
+    background: var(--phosphor-green-bright);
+    box-shadow: 0 0 8px var(--phosphor-green), 0 0 15px var(--phosphor-green);
+    transform-origin: bottom center;
+}
+
+/* Home Radar Crosshair Target */
+.radar-home-marker {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+.radar-home-crosshair {
+    width: 30px;
+    height: 30px;
+    position: relative;
+}
+
+.radar-home-crosshair::before,
+.radar-home-crosshair::after {
+    content: '';
+    position: absolute;
+    background-color: var(--phosphor-green);
+    box-shadow: 0 0 4px var(--phosphor-glow);
+}
+
+/* Vertical crosshair line */
+.radar-home-crosshair::before {
+    width: 2px;
+    height: 100%;
+    left: 50%;
+    margin-left: -1px;
+}
+
+/* Horizontal crosshair line */
+.radar-home-crosshair::after {
+    height: 2px;
+    width: 100%;
+    top: 50%;
+    margin-top: -1px;
+}
+
+/* Center dot & ring */
+.radar-home-dot {
+    width: 6px;
+    height: 6px;
+    background-color: var(--phosphor-green);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 8px var(--phosphor-green);
+}
+
+.radar-home-ring {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--phosphor-green);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: radar-origin-pulse 3s infinite linear;
+}
+
+@keyframes radar-origin-pulse {
+    0% { width: 10px; height: 10px; opacity: 1; }
+    100% { width: 32px; height: 32px; opacity: 0; }
+}
+
+/* Range rings surrounding the origin */
+.radar-range-ring {
+    border: 1px dashed rgba(0, 255, 85, 0.12);
+    border-radius: 50%;
+    position: absolute;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    z-index: 999;
+}
+
+/* ==========================================================================
+   AIRCRAFT MARKERS (MAP)
+   ========================================================================== */
+.aircraft-marker-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.aircraft-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    /* Unswept / dim state */
+    opacity: 0.35;
+    transition: opacity 3s ease-out 5s; /* Stay fully bright for 5s, then fade to dim over 3s */
+    will-change: opacity;
+}
+
+/* The glowing plane icon */
+.aircraft-icon {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.2s ease;
+    overflow: visible !important;
+}
+
 
 .aircraft-icon path {
     fill: var(--phosphor-green);
@@ -803,6 +1005,7 @@ body {
 .aircraft-marker.swept-flash .aircraft-icon {
     filter: drop-shadow(0 0 4px var(--phosphor-green));
 }
+
 
 /* Selected aircraft style (adds persistent bracket/ring) */
 .aircraft-marker.selected::before {
@@ -2463,4 +2666,129 @@ body {
     opacity: 1 !important;
 }
 
+/* === CodeRed Easter Egg: Scope screw clickability === */
+.scope-screw {
+    cursor: pointer;
+    pointer-events: auto;
+}
 
+/* === CodeRed Pilot Indicator Light === */
+.pilot-light {
+    position: absolute;
+    bottom: 100px;
+    right: 31px;
+    z-index: 2100;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    /* Chrome bezel ring — NW light source: highlight top-left, shadow bottom-right */
+    background: radial-gradient(circle at 35% 35%,
+        #e8e4dc 0%,
+        #c8c4ba 15%,
+        #9a9690 35%,
+        #6e6b66 55%,
+        #4a4844 75%,
+        #3a3836 100%
+    );
+    box-shadow:
+        /* NW specular catch on chrome rim */
+        -1px -1px 2px rgba(255, 255, 255, 0.2),
+        /* SE drop shadow from bezel ring */
+        2px 3px 6px rgba(0, 0, 0, 0.7),
+        /* Inset depth ring */
+        inset 0 0 1px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: box-shadow 0.4s ease;
+}
+
+.pilot-light-dome {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    /* Unlit glass dome — dark smoky lens with slight NW highlight */
+    background: radial-gradient(circle at 35% 30%,
+        rgba(80, 70, 65, 0.9) 0%,
+        rgba(45, 40, 38, 0.95) 40%,
+        rgba(25, 22, 20, 1) 100%
+    );
+    box-shadow:
+        /* Glass convex highlight — NW source */
+        inset -1px -1px 3px rgba(255, 255, 255, 0.06),
+        inset 1px 1px 2px rgba(255, 255, 255, 0.03);
+    transition: background 0.3s ease, box-shadow 0.4s ease;
+}
+
+/* Active: lit red dome with radial light cast onto surrounding bezel */
+.pilot-light.active {
+    box-shadow:
+        -1px -1px 2px rgba(255, 255, 255, 0.15),
+        2px 3px 6px rgba(0, 0, 0, 0.5),
+        inset 0 0 1px rgba(0, 0, 0, 0.3),
+        /* Red radial light cast — falls off quickly */
+        0 0 8px 2px rgba(255, 40, 30, 0.6),
+        0 0 20px 6px rgba(255, 40, 30, 0.3),
+        0 0 40px 12px rgba(255, 30, 20, 0.12);
+}
+
+.pilot-light.active .pilot-light-dome {
+    background: radial-gradient(circle at 40% 35%,
+        rgba(255, 220, 200, 1) 0%,
+        rgba(255, 80, 50, 0.95) 30%,
+        rgba(220, 30, 20, 0.9) 60%,
+        rgba(160, 15, 10, 0.85) 100%
+    );
+    box-shadow:
+        /* Hot specular point on glass surface */
+        inset -1px -1px 3px rgba(255, 255, 255, 0.3),
+        inset 1px 1px 2px rgba(255, 200, 180, 0.15),
+        /* Bright glow from filament */
+        0 0 4px 1px rgba(255, 60, 40, 0.8);
+}
+
+/* === CodeRed Easter Egg: Warbird red highlight === */
+/* Color the airplane icon itself */
+.aircraft-marker.warbird .aircraft-icon path {
+    fill: #ff3333 !important;
+}
+/* Excitation phosphor flash glow (centered red halo/bloom) */
+.aircraft-marker.warbird.swept-flash .aircraft-icon {
+    filter: drop-shadow(0 0 4px #ff3333) !important;
+}
+.aircraft-marker.warbird.selected::before {
+    border-color: #ff3333 !important;
+}
+/* Enhanced high-visibility warbird breadcrumb trail */
+.radar-trail.warbird {
+    stroke: #ff3333 !important;
+    opacity: 0.65 !important;
+}
+/* Prevent color blending against green background by maintaining high opacity when faded */
+.aircraft-marker.warbird:not(.swept-flash) {
+    opacity: 0.65 !important;
+}
+/* Style the row the warbird is on in the target list */
+.target-item.warbird {
+    color: #ff3333 !important;
+}
+.target-item.warbird:hover {
+    color: #ff3399 !important;
+}
+/* Style the background of the warbird row in the list when selected */
+.target-item.warbird.selected {
+    border-left-color: #ff3333 !important;
+    background-color: rgba(255, 51, 51, 0.15) !important;
+}
+
+/* Color-coded callsign boxes matching classification */
+.aircraft-marker.mil .aircraft-label {
+    color: #ffaa00;
+    border-color: rgba(255, 170, 0, 0.45);
+    background-color: #0c0800; /* Dark amber tint background */
+}
+.aircraft-marker.warbird .aircraft-label {
+    color: #ff3333;
+    border-color: rgba(255, 51, 51, 0.45);
+    background-color: #0d0202; /* Dark red tint background */
+}

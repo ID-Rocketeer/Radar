@@ -42,7 +42,8 @@ if (isNaN(HOME_LAT)) HOME_LAT = defaultLat;
 if (isNaN(HOME_LON)) HOME_LON = defaultLon;
 
 // Validate and cap range. The Airplanes.live API limits point queries to 250 NM.
-// We also set a minimum of 2 NM to prevent division by zero or rendering issues on tiny zoom levels.
+// We set a minimum query/ring range of 2 NM to maintain data density limits,
+// although the visual map zoom is allowed to go closer (up to level 20).
 if (isNaN(RANGE_NM)) {
     RANGE_NM = defaultRange;
 } else {
@@ -114,6 +115,82 @@ const AIRCRAFT_ICONS = {
     // Helicopter top-down view (rotors & tail spinner)
     helicopter: 'M12,6C13.7,6 14.8,7.5 14.8,10C14.8,12 13.5,14 12.8,16H11.2C10.5,14 9.2,12 9.2,10C9.2,7.5 10.3,6 12,6ZM2.7,3.3L20.7,21.3L21.3,20.7L3.3,2.7ZM20.7,2.7L2.7,20.7L3.3,21.3L21.3,3.3ZM12,9.8A1.2,1.2 0 1,1 12,12.2A1.2,1.2 0 1,1 12,9.8ZM11.6,16H12.4V22H11.6ZM9,19.7H15V20.3H9ZM9.7,19H10.3V23H9.7ZM10.3,21.2H11.6V21.8H10.3'
 };
+
+// === CodeRed Easter Egg: WWII Warbird Identification ===
+// Military type designators for WWII-era fighters, bombers, patrol, and trainer aircraft.
+// Only military designations qualify (e.g. C47 yes, DC3 no).
+const WARBIRD_TYPE_CODES = new Set([
+    // USAAF Fighters
+    'P36', 'P38', 'P39', 'P40', 'P47', 'P51', 'P61', 'P63', 'P82',
+    // USAAF Bombers & Attack
+    'B17', 'B24', 'B25', 'B26', 'B29', 'A20', 'A26',
+    // USAAF Trainers
+    'AT6', 'T6', 'BT13', 'BT15', 'PT13', 'PT17', 'PT19', 'PT22', 'PT26',
+    // Military Transport
+    'C45', 'C46', 'C47', 'C53', 'C54', 'C60',
+    // Fake cargo plane for testing purposes only
+    // 'C402',
+    // US Navy/Marine Fighters
+    'F2A', 'F3F', 'F4F', 'FM1', 'FM2', 'F6F', 'F4U', 'FG1', 'F3A', 'F8F', 'F7F',
+    // Navy Dive Bombers / Torpedo Bombers
+    'SBD', 'SB2C', 'TBD', 'TBF', 'TBM',
+    // Navy Patrol / Flying Boats
+    'PBY', 'PBM', 'PBJ', 'PV1', 'PV2',
+    // Navy Attack (Korea-era, WWII lineage)
+    'AD', 'AD1', 'AD4', 'AD5', 'AD6', 'A1',
+    // Navy Trainers
+    'SNJ', 'N3N', 'SNV',
+    // Royal Air Force / British
+    'SPIT', 'HURR', 'HRCN', 'LANC', 'MOSQ', 'TEMP', 'TYPH',
+    // Axis — German
+    'ME09', 'BF09', 'ME62', 'FW90', 'JU52', 'JU87',
+    // Axis — Japanese
+    'ZERO', 'A6M',
+    // Soviet
+    'YAK3', 'YAK9', 'YK11', 'IL2', 'LA5', 'LA7', 'LA9'
+]);
+
+let warbirdModeActive = localStorage.getItem('codeRedActive') === 'true';
+
+function isWarbird(ac) {
+    if (!ac || !ac.type) return false;
+    return WARBIRD_TYPE_CODES.has(ac.type.toUpperCase());
+}
+
+function isActiveWarbird(ac) {
+    return warbirdModeActive && isWarbird(ac);
+}
+
+// Refresh warbird CSS classes on all existing markers, trails, and the target list
+function refreshWarbirdStyling() {
+    Object.keys(activeAircraft).forEach(hex => {
+        const ac = activeAircraft[hex];
+        const isWb = isActiveWarbird(ac);
+        const safeHex = sanitizeId(hex);
+
+        // Update marker DOM
+        const markerDom = document.getElementById(`marker-${safeHex}`);
+        if (markerDom) {
+            markerDom.classList.toggle('warbird', isWb);
+        }
+
+        // Update trail SVG element
+        if (ac.trail) {
+            const trailEl = ac.trail.getElement ? ac.trail.getElement() : null;
+            if (trailEl) {
+                trailEl.classList.toggle('warbird', isWb);
+            }
+        }
+    });
+
+    // Toggle pilot indicator light
+    const pilotLight = document.getElementById('codered-light');
+    if (pilotLight) {
+        pilotLight.classList.toggle('active', warbirdModeActive);
+    }
+
+    updateTargetList();
+}
 
 // Classifies the aircraft raw data into one of our custom icon categories
 function getAircraftIconType(rawAc) {
@@ -270,6 +347,11 @@ function initParallaxGlare() {
 function initializeRadarSystem() {
     initMap();
     initControls();
+    // Restore CodeRed pilot light if mode was persisted across page reload
+    if (warbirdModeActive) {
+        const pilotLight = document.getElementById('codered-light');
+        if (pilotLight) pilotLight.classList.add('active');
+    }
     updateUIConfigurationValues();
     startRadarSweep();
     initParallaxGlare();
@@ -595,6 +677,70 @@ function initControls() {
         if (e.key === 'Escape') {
             closeHelp();
         }
+    });
+
+    // === CodeRed Easter Egg: Scope screw click sequence handler ===
+    const activationSequence = ['s0', 's135', 's270', 's45', 's180', 's315', 's90', 's225'];
+    let eggClicks = [];
+    let eggStartTime = 0;
+    let deactClicks = [];
+    let deactStartTime = 0;
+
+    function getScrewPosition(el) {
+        const positions = ['s0', 's45', 's90', 's135', 's180', 's225', 's270', 's315'];
+        return positions.find(cls => el.classList.contains(cls)) || null;
+    }
+
+    document.querySelectorAll('.scope-screw').forEach(screw => {
+        screw.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const pos = getScrewPosition(screw);
+            if (!pos) return;
+
+            const now = Date.now();
+
+            if (warbirdModeActive) {
+                // Deactivation: triple-click s0 within 5 seconds
+                if (pos === 's0') {
+                    if (deactClicks.length === 0 || now - deactStartTime > 5000) {
+                        deactClicks = [now];
+                        deactStartTime = now;
+                    } else {
+                        deactClicks.push(now);
+                    }
+                    if (deactClicks.length >= 3) {
+                        warbirdModeActive = false;
+                        localStorage.setItem('codeRedActive', 'false');
+                        deactClicks = [];
+                        refreshWarbirdStyling();
+                    }
+                } else {
+                    deactClicks = [];
+                }
+            } else {
+                // Activation: 8-screw sequence within 20 seconds
+                if (eggClicks.length === 0 || now - eggStartTime > 20000) {
+                    eggClicks = [];
+                    eggStartTime = now;
+                }
+                if (pos === activationSequence[eggClicks.length]) {
+                    eggClicks.push(pos);
+                    if (eggClicks.length === activationSequence.length) {
+                        warbirdModeActive = true;
+                        localStorage.setItem('codeRedActive', 'true');
+                        eggClicks = [];
+                        refreshWarbirdStyling();
+                    }
+                } else {
+                    // Wrong screw — reset, but if this screw is the start of the sequence, begin fresh
+                    eggClicks = [];
+                    eggStartTime = now;
+                    if (pos === activationSequence[0]) {
+                        eggClicks.push(pos);
+                    }
+                }
+            }
+        });
     });
 
     initLocationSelection();
@@ -962,7 +1108,7 @@ function triggerAircraftSweep(hex) {
         setTimeout(() => {
             const el = document.getElementById(`marker-${safeHex}`);
             if (el) el.classList.remove('swept-flash');
-        }, 100);
+        }, 200);
     }
 
     // If this plane is currently selected, refresh telemetry details dynamically
@@ -1183,14 +1329,20 @@ function updateTargetList() {
     // Filter and sort active aircraft list
     const filteredAc = Object.values(activeAircraft).filter(ac => {
         if (!ac.sweptOnce) return false; // Hide unswept targets from list
-        if (activeFilter === 'mil') return ac.mil;
+        if (activeFilter === 'mil') return ac.mil || isActiveWarbird(ac);
         if (activeFilter === 'commercial') return isCommercialAircraft(ac);
         if (activeFilter === 'ga') return !ac.mil && !isCommercialAircraft(ac);
         return true; // 'all'
     });
 
-    // Sort list: Military first, then closest distance
+    // Sort list: Warbirds first (when CodeRed active), then Military, then closest distance
     filteredAc.sort((a, b) => {
+        if (warbirdModeActive) {
+            const aWb = isWarbird(a);
+            const bWb = isWarbird(b);
+            if (aWb && !bWb) return -1;
+            if (!aWb && bWb) return 1;
+        }
         if (a.mil && !b.mil) return -1;
         if (!a.mil && b.mil) return 1;
         return a.dist - b.dist;
@@ -1240,7 +1392,7 @@ function updateTargetList() {
         }
 
         // Apply updated classification classes
-        item.className = `target-item ${ac.mil ? 'mil' : ''} ${selectedHex === ac.hex ? 'selected' : ''}`;
+        item.className = `target-item ${ac.mil ? 'mil' : ''} ${isActiveWarbird(ac) ? 'warbird' : ''} ${selectedHex === ac.hex ? 'selected' : ''}`;
 
         // Build HTML content and replace only if changed to prevent browser paint loops
         const distVal = ac.dist;
@@ -1289,7 +1441,7 @@ function updateMarkerVisibility(hex) {
     }
 
     let visible = true;
-    if (activeFilter === 'mil' && !ac.mil) visible = false;
+    if (activeFilter === 'mil' && !(ac.mil || isActiveWarbird(ac))) visible = false;
     else if (activeFilter === 'commercial' && !isCommercialAircraft(ac)) visible = false;
     else if (activeFilter === 'ga' && (ac.mil || isCommercialAircraft(ac))) visible = false;
 
@@ -1312,7 +1464,7 @@ function updateMarkerVisibility(hex) {
             const markerIcon = L.divIcon({
                 className: `aircraft-marker-container`,
                 html: `
-                    <div class="aircraft-marker ${ac.mil ? 'mil' : ''}" id="marker-${safeHex}">
+                    <div class="aircraft-marker ${ac.mil ? 'mil' : ''} ${isActiveWarbird(ac) ? 'warbird' : ''}" id="marker-${safeHex}">
                         <svg class="aircraft-icon" viewBox="0 0 24 24" style="transform: rotate(${ac.track}deg);">
                             <path d="${iconPath}" />
                         </svg>
@@ -1341,6 +1493,7 @@ function updateMarkerVisibility(hex) {
                 if (pathEl) {
                     pathEl.setAttribute('d', AIRCRAFT_ICONS[ac.iconType || 'jet']);
                 }
+                markerDom.classList.toggle('warbird', isActiveWarbird(ac));
             }
         }
 
@@ -1348,7 +1501,7 @@ function updateMarkerVisibility(hex) {
         if (trailsEnabled) {
             if (!ac.trail) {
                 ac.trail = L.polyline([[ac.lat, ac.lon]], {
-                    className: `radar-trail ${ac.mil ? 'mil' : ''}`,
+                    className: `radar-trail ${ac.mil ? 'mil' : ''} ${isActiveWarbird(ac) ? 'warbird' : ''}`,
                     interactive: false
                 }).addTo(map);
             } else {
@@ -1376,6 +1529,8 @@ function updateMarkerVisibility(hex) {
    SELECTION HANDLING
    ========================================================================== */
 function selectAircraft(hex) {
+    const targetHex = (selectedHex === hex) ? null : hex;
+
     // Remove highlights from old selection
     if (selectedHex && activeAircraft[selectedHex]) {
         const safeOldHex = sanitizeId(selectedHex);
@@ -1386,7 +1541,7 @@ function selectAircraft(hex) {
         if (prevRow) prevRow.classList.remove('selected');
     }
 
-    selectedHex = hex;
+    selectedHex = targetHex;
 
     // Apply selection styling to new aircraft
     if (selectedHex && activeAircraft[selectedHex]) {
@@ -1482,7 +1637,7 @@ function renderTelemetryDetails(hex) {
         </div>
         <div class="tel-row">
             <span class="tel-label">CLASSIFICATION:</span>
-            <span class="tel-val ${ac.mil ? 'alert' : ''}">${ac.mil ? 'MILITARY SECURE' : 'CIVILIAN AIR TRAFFIC'} (${(ac.iconType || 'jet').toUpperCase()})</span>
+            <span class="tel-val ${ac.mil ? 'alert' : (isActiveWarbird(ac) ? 'warbird' : '')}">${ac.mil ? 'MILITARY SECURE' : (isActiveWarbird(ac) ? 'WARBIRD' : 'CIVILIAN AIR TRAFFIC')} (${(ac.iconType || 'jet').toUpperCase()})</span>
         </div>
     `;
 }
