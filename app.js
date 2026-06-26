@@ -66,6 +66,7 @@ let targetListDomMap = {}; // Maps hex -> DOM element for target list reconcilia
 let sweepEl = null; // Global reference to the sweep line DOM element
 let sweepActive = true; // Flag to halt/resume sweep line rotation on connection errors
 let pollIntervalId = null; // ID to track active polling interval
+let activePollController = null; // Controller to abort in-flight API requests
 
 // Location selection calibration states
 let isSelectionMode = false;
@@ -324,6 +325,10 @@ function stopPolling() {
     if (pollIntervalId) {
         clearInterval(pollIntervalId);
         pollIntervalId = null;
+    }
+    if (activePollController) {
+        activePollController.abort();
+        activePollController = null;
     }
 }
 
@@ -1132,17 +1137,26 @@ function triggerAircraftSweep(hex) {
    API DATA RETRIEVAL (AIRPLANES.LIVE)
    ========================================================================== */
 function pollFlightData() {
+    if (activePollController) {
+        activePollController.abort();
+    }
+    activePollController = new AbortController();
+    const signal = activePollController.signal;
+
     const url = `https://api.airplanes.live/v2/point/${HOME_LAT}/${HOME_LON}/${RANGE_NM}`;
     
-    fetch(url)
+    fetch(url, { signal })
         .then(res => {
             if (!res.ok) throw new Error("API Connection Failed");
             return res.json();
         })
         .then(data => {
+            activePollController = null;
             processAPIResponse(data);
         })
         .catch(err => {
+            if (err.name === 'AbortError') return; // Ignore programmatic aborts
+            activePollController = null;
             console.error("Fetch Error:", err);
             sweepActive = false; // Shut off sweep line on link error
             // Glitch header effect in case of connection errors
@@ -1155,6 +1169,7 @@ function pollFlightData() {
 }
 
 function processAPIResponse(data) {
+    if (isSelectionMode) return;
     sweepActive = true; // Resume sweep line rotation
     // Reset status elements to Online
     const statusText = document.querySelector('.system-status .status-text');
@@ -2000,6 +2015,10 @@ function exitSelectionMode(confirmChanges) {
         map.setView([HOME_LAT, HOME_LON]);
 
         // Clear active target tracking registry and bearings
+        Object.values(activeAircraft).forEach(ac => {
+            if (ac.marker && map.hasLayer(ac.marker)) map.removeLayer(ac.marker);
+            if (ac.trail && map.hasLayer(ac.trail)) map.removeLayer(ac.trail);
+        });
         activeAircraft = {};
         bearingBuckets = Array.from({ length: 360 }, () => new Set());
         selectedHex = null;
