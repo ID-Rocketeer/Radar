@@ -2792,21 +2792,3 @@ body {
     border-color: rgba(255, 51, 51, 0.45);
     background-color: #0d0202; /* Dark red tint background */
 }
-
-/* GPU-Accelerated Sweep Rotation Keyframes and Class Override */
-@keyframes radar-sweep {
-    from {
-        transform: translateZ(0) rotate(0deg);
-    }
-    to {
-        transform: translateZ(0) rotate(360deg);
-    }
-}
-
-.radar-sweep-line {
-    animation: radar-sweep 10s linear infinite;
-}
-
-.radar-sweep-line.paused {
-    animation-play-state: paused !important;
-}

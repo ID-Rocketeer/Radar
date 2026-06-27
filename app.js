@@ -949,18 +949,21 @@ function startRadarSweep() {
     });
     sweepMarker = L.marker([HOME_LAT, HOME_LON], { icon: sweepIcon, interactive: false, pane: 'sweepPane' }).addTo(map);
 
-    let startTimestamp = null;
+    let lastTime = null;
     let currentAngle = 0;
 
     // Update sweep size on map zoom completion and view reset
     map.on('zoomend viewreset', updateSweepSize);
 
     function animate(timestamp) {
-        if (startTimestamp === null) {
-            startTimestamp = timestamp;
+        if (lastTime === null) {
+            lastTime = timestamp;
             requestAnimationFrame(animate);
             return;
         }
+
+        const dt = timestamp - lastTime;
+        lastTime = timestamp;
 
         // Check if cached sweep line element is null or has been detached by Leaflet (e.g., on zoom/pan)
         if (!sweepEl || !document.body.contains(sweepEl)) {
@@ -971,22 +974,26 @@ function startRadarSweep() {
         if (!sweepActive) {
             if (sweepEl) {
                 sweepEl.style.display = 'none';
-                sweepEl.classList.add('paused');
             }
-            // Adjust startTimestamp so that upon resume, the elapsed time starts from the pause angle
-            startTimestamp = timestamp - (currentAngle / 360) * SWEEP_DURATION_MS;
             requestAnimationFrame(animate);
             return;
         } else {
             if (sweepEl) {
                 sweepEl.style.display = 'block';
-                sweepEl.classList.remove('paused');
             }
         }
 
-        // Calculate sweep increment based on absolute clock time to prevent drift with CSS animation
-        const elapsed = (timestamp - startTimestamp) % SWEEP_DURATION_MS;
-        const nextAngle = (elapsed / SWEEP_DURATION_MS) * 360;
+        // Clamp delta time to sweep duration to prevent giant jumps when tab wakes up
+        const clampedDt = Math.min(dt, SWEEP_DURATION_MS);
+
+        // Calculate sweep increment based on delta time
+        const deltaAngle = (clampedDt / SWEEP_DURATION_MS) * 360;
+        const nextAngle = currentAngle + deltaAngle; // Grow continuously to prevent browser compositor matrix resets
+
+        // Update sweep rotation visually
+        if (sweepEl) {
+            sweepEl.style.transform = `translateZ(0) rotate(${nextAngle}deg)`;
+        }
 
         // Check which aircraft are passed over by the radar beam during this frame (using modulo angles)
         checkSweptAircraft(currentAngle % 360, nextAngle % 360);
