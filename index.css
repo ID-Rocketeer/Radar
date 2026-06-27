@@ -2792,3 +2792,17 @@ body {
     border-color: rgba(255, 51, 51, 0.45);
     background-color: #0d0202; /* Dark red tint background */
 }
+
+/* Expanded touch target enabled dynamically on touch devices */
+.touch-enabled .screw-touch-target {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    background: transparent;
+    pointer-events: auto;
+    z-index: 100;
+}

@@ -772,12 +772,19 @@ function initControls() {
         }
     });
 
-    // === CodeRed Easter Egg: Scope screw click sequence handler ===
+    // === CodeRed Easter Egg: Scope screw pointerdown sequence handler ===
+    // Detect touch-capable devices dynamically upon first touch to enable target expansion
+    window.addEventListener('touchstart', function onFirstTouch() {
+        document.body.classList.add('touch-enabled');
+        window.removeEventListener('touchstart', onFirstTouch);
+    }, { passive: true });
+
     const activationSequence = ['s0', 's135', 's270', 's45', 's180', 's315', 's90', 's225'];
     let eggClicks = [];
     let eggStartTime = 0;
     let deactClicks = [];
     let deactStartTime = 0;
+    let lastScrewClicks = {}; // Debounce timestamp registry
 
     function getScrewPosition(el) {
         const positions = ['s0', 's45', 's90', 's135', 's180', 's225', 's270', 's315'];
@@ -785,12 +792,26 @@ function initControls() {
     }
 
     document.querySelectorAll('.scope-screw').forEach(screw => {
-        screw.addEventListener('click', (e) => {
+        // Dynamically append touch expander target
+        const touchTarget = document.createElement('div');
+        touchTarget.className = 'screw-touch-target';
+        screw.appendChild(touchTarget);
+
+        screw.addEventListener('pointerdown', (e) => {
+            // Stop propagation and prevent default so mobile map dragging does not cancel the click
+            e.preventDefault();
             e.stopPropagation();
+
             const pos = getScrewPosition(screw);
             if (!pos) return;
 
             const now = Date.now();
+
+            // Debounce: discard clicks on the same screw within 300ms (filtering stylus tip bounce/tremor)
+            if (lastScrewClicks[pos] && (now - lastScrewClicks[pos] < 300)) {
+                return;
+            }
+            lastScrewClicks[pos] = now;
 
             if (warbirdModeActive) {
                 // Deactivation: triple-click s0 within 5 seconds
