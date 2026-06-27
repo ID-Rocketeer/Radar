@@ -807,20 +807,23 @@ function updateMinZoom() {
     
     try {
         const minZoomVal = getZoomForRange(RANGE_NM);
+        const snappedMinZoom = isSelectionMode ? 0 : minZoomVal;
         const currentZoom = map.getZoom();
         const currentMinZoom = map.getMinZoom();
         const isAtMinZoom = Math.abs(currentZoom - currentMinZoom) < 0.05;
         
         // Only update minZoom if it has changed by more than 0.001
-        if (Math.abs(currentMinZoom - minZoomVal) > 0.001) {
-            map.setMinZoom(minZoomVal);
+        if (Math.abs(currentMinZoom - snappedMinZoom) > 0.001) {
+            map.setMinZoom(snappedMinZoom);
         }
         
         // Always force initial load to start at the maximum configured range zoom level (disable transition animation to snap instantly)
         // If the window is resized or layout reflows while at minZoom, adjust the zoom to the new minZoomVal automatically
-        if (!initialZoomSet || (isAtMinZoom && Math.abs(currentZoom - minZoomVal) > 0.001) || currentZoom < minZoomVal) {
-            map.setView([HOME_LAT, HOME_LON], minZoomVal, { animate: false });
-            initialZoomSet = true;
+        if (!isSelectionMode) {
+            if (!initialZoomSet || (isAtMinZoom && Math.abs(currentZoom - minZoomVal) > 0.001) || currentZoom < minZoomVal) {
+                map.setView([HOME_LAT, HOME_LON], minZoomVal, { animate: false });
+                initialZoomSet = true;
+            }
         }
     } catch (e) {
         console.error("Error in updateMinZoom:", e);
