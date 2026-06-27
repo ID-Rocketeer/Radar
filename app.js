@@ -68,6 +68,7 @@ let sweepMarker; // Reference to rotating sweep center marker
 let rangeRings = [];
 let activeAircraft = {}; // Holds aircraft metadata and map instances
 let selectedHex = null;
+let trackedHex = null; // Currently tracked aircraft HEX address (Easter Egg)
 let activeFilter = 'all'; // 'all', 'mil', 'commercial', 'ga'
 let trailsEnabled = true;
 let lowAltitudeFilterEnabled = false; // Filter modifier for low-altitude targets
@@ -324,6 +325,56 @@ function updateUIConfigurationValues() {
         if (rangeEl.tagName === 'INPUT') rangeEl.value = formattedVal;
         else rangeEl.innerText = `${formattedVal} NM`;
     }
+}
+
+function updateRadarCenter(newLat, newLon) {
+    // 1. First run the migration pass on all active aircraft to prevent ghost planes
+    Object.keys(activeAircraft).forEach(hex => {
+        const ac = activeAircraft[hex];
+        const distToNewCenter = calcDistance(newLat, newLon, ac.lat, ac.lon);
+
+        if (distToNewCenter > RANGE_NM) {
+            // Delete plane immediately if it falls out of the new scanning boundary
+            if (ac.marker && map.hasLayer(ac.marker)) map.removeLayer(ac.marker);
+            if (ac.trail && map.hasLayer(ac.trail)) map.removeLayer(ac.trail);
+            removeAircraftFromBearingIndex(hex, ac.bearing);
+            delete activeAircraft[hex];
+        }
+    });
+
+    // 2. Set the new home coordinates
+    HOME_LAT = newLat;
+    HOME_LON = newLon;
+
+    // 3. Update the index for remaining in-range planes relative to the new center coordinates
+    Object.keys(activeAircraft).forEach(hex => {
+        const ac = activeAircraft[hex];
+        const oldBearing = ac.bearing;
+        const newBearing = calcBearing(ac.lat, ac.lon);
+        ac.bearing = newBearing;
+        ac.dist = calcDistance(HOME_LAT, HOME_LON, ac.lat, ac.lon);
+
+        // Migrate bearing indexes so sweep updates are precise
+        removeAircraftFromBearingIndex(hex, oldBearing);
+        addAircraftToBearingIndex(hex, newBearing);
+    });
+
+    // 4. Update UI input displays
+    updateUIConfigurationValues();
+
+    // 5. Reposition map view and console reticle markers
+    map.setView([HOME_LAT, HOME_LON], map.getZoom(), { animate: false });
+    if (homeMarker) homeMarker.setLatLng([HOME_LAT, HOME_LON]);
+    if (sweepMarker) sweepMarker.setLatLng([HOME_LAT, HOME_LON]);
+
+    // 6. Relocate all range rings to the new center
+    rangeRings.forEach(ring => {
+        ring.setLatLng([HOME_LAT, HOME_LON]);
+    });
+
+    // 7. Update URL parameters silently
+    const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${Math.round(RANGE_NM)}`;
+    window.history.replaceState(null, '', newUrl);
 }
 
 function startPolling() {
@@ -1069,7 +1120,6 @@ function getDisplayedRange() {
 
 // Dynamically calculate and report the physical range currently displayed at the visible bezel edge
 function updateDisplayedRange() {
-    if (isProgrammaticChange) return;
     const rangeEl = document.getElementById('val-range');
     if (!rangeEl) return;
     
@@ -1266,6 +1316,11 @@ function triggerAircraftSweep(hex) {
         // Update marker position and visibility on map
         if (coordChanged) {
             updateMarkerVisibility(hex);
+            
+            // Easter Egg: Active Target Tracking lock-on centering
+            if (trackedHex === hex) {
+                updateRadarCenter(ac.lat, ac.lon);
+            }
         }
         
         // Update SVG icon rotation only if track changed
@@ -1776,6 +1831,9 @@ function updateMarkerVisibility(hex) {
    SELECTION HANDLING
    ========================================================================== */
 function selectAircraft(hex) {
+    // Break target tracking lock if selection changes or is cleared
+    trackedHex = null;
+
     const targetHex = (selectedHex === hex) ? null : hex;
 
     // Remove highlights from old selection
@@ -1845,10 +1903,12 @@ function renderTelemetryDetails(hex) {
 
     const headingText = getHeadingDirection(ac.track);
 
+    const isTracked = trackedHex === ac.hex;
+
     display.innerHTML = `
         <div class="tel-row">
             <span class="tel-label">HEX ADDR:</span>
-            <span class="tel-val">${ac.hex.toUpperCase()}</span>
+            <span class="tel-val hex-tracker-toggle" id="hex-toggle-${ac.hex}" style="cursor: pointer; user-select: none; font-weight: bold; ${isTracked ? 'color: #d4ff00; text-shadow: 0 0 6px rgba(212, 255, 0, 0.6);' : ''}">${ac.hex.toUpperCase()}</span>
         </div>
         <div class="tel-row">
             <span class="tel-label">CALLSIGN:</span>
@@ -1887,6 +1947,21 @@ function renderTelemetryDetails(hex) {
             <span class="tel-val ${ac.mil ? 'alert' : (isActiveWarbird(ac) ? 'warbird' : '')}">${ac.mil ? 'MILITARY SECURE' : (isActiveWarbird(ac) ? 'WARBIRD' : 'CIVILIAN AIR TRAFFIC')} (${(ac.iconType || 'jet').toUpperCase()})</span>
         </div>
     `;
+
+    // Attach click event listener for the hidden TRACK mode toggle
+    const toggleBtn = document.getElementById(`hex-toggle-${ac.hex}`);
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            if (trackedHex === ac.hex) {
+                trackedHex = null; // Turn off tracking
+            } else {
+                trackedHex = ac.hex; // Turn on tracking
+                // Center the scope immediately on target lock
+                updateRadarCenter(ac.lat, ac.lon);
+            }
+            renderTelemetryDetails(ac.hex); // Re-render instantly to update colors
+        });
+    }
 }
 
 function resetTelemetryDisplay() {
@@ -2232,6 +2307,9 @@ function exitSelectionMode(confirmChanges) {
     map.setMaxZoom(20);
 
     if (confirmChanges) {
+        // Break target tracking lock on manual location updates
+        trackedHex = null;
+
         // Commit changes to system variables and normalize them
         HOME_LAT = Math.max(-85.05112878, Math.min(85.05112878, tempLat));
         HOME_LON = ((tempLon + 180) % 360 + 360) % 360 - 180;
