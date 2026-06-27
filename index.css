@@ -1003,7 +1003,7 @@ body {
 
 /* Apply glowing drop shadow ONLY to the SVG, protecting text from rasterization */
 .aircraft-marker.swept-flash .aircraft-icon {
-    filter: drop-shadow(0 0 4px var(--phosphor-green));
+    /* filter: drop-shadow(0 0 4px var(--phosphor-green)); */
 }
 
 
@@ -1029,7 +1029,7 @@ body {
     fill: #ffaa00; /* Vintage Radar Amber for military */
 }
 .aircraft-marker.mil.swept-flash .aircraft-icon {
-    filter: drop-shadow(0 0 4px #ffaa00);
+    /* filter: drop-shadow(0 0 4px #ffaa00); */
 }
 .aircraft-marker.mil.selected::before {
     border-color: #ffaa00;
@@ -2754,7 +2754,7 @@ body {
 }
 /* Excitation phosphor flash glow (centered red halo/bloom) */
 .aircraft-marker.warbird.swept-flash .aircraft-icon {
-    filter: drop-shadow(0 0 4px #ff3333) !important;
+    /* filter: drop-shadow(0 0 4px #ff3333) !important; */
 }
 .aircraft-marker.warbird.selected::before {
     border-color: #ff3333 !important;
@@ -2791,4 +2791,22 @@ body {
     color: #ff3333;
     border-color: rgba(255, 51, 51, 0.45);
     background-color: #0d0202; /* Dark red tint background */
+}
+
+/* GPU-Accelerated Sweep Rotation Keyframes and Class Override */
+@keyframes radar-sweep {
+    from {
+        transform: translateZ(0) rotate(0deg);
+    }
+    to {
+        transform: translateZ(0) rotate(360deg);
+    }
+}
+
+.radar-sweep-line {
+    animation: radar-sweep 10s linear infinite;
+}
+
+.radar-sweep-line.paused {
+    animation-play-state: paused !important;
 }

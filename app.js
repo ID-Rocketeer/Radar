@@ -949,21 +949,18 @@ function startRadarSweep() {
     });
     sweepMarker = L.marker([HOME_LAT, HOME_LON], { icon: sweepIcon, interactive: false, pane: 'sweepPane' }).addTo(map);
 
-    let lastTime = null;
+    let startTimestamp = null;
     let currentAngle = 0;
 
     // Update sweep size on map zoom completion and view reset
     map.on('zoomend viewreset', updateSweepSize);
 
     function animate(timestamp) {
-        if (lastTime === null) {
-            lastTime = timestamp;
+        if (startTimestamp === null) {
+            startTimestamp = timestamp;
             requestAnimationFrame(animate);
             return;
         }
-
-        const dt = timestamp - lastTime;
-        lastTime = timestamp;
 
         // Check if cached sweep line element is null or has been detached by Leaflet (e.g., on zoom/pan)
         if (!sweepEl || !document.body.contains(sweepEl)) {
@@ -974,26 +971,22 @@ function startRadarSweep() {
         if (!sweepActive) {
             if (sweepEl) {
                 sweepEl.style.display = 'none';
+                sweepEl.classList.add('paused');
             }
+            // Adjust startTimestamp so that upon resume, the elapsed time starts from the pause angle
+            startTimestamp = timestamp - (currentAngle / 360) * SWEEP_DURATION_MS;
             requestAnimationFrame(animate);
             return;
         } else {
             if (sweepEl) {
                 sweepEl.style.display = 'block';
+                sweepEl.classList.remove('paused');
             }
         }
 
-        // Clamp delta time to sweep duration to prevent giant jumps when tab wakes up
-        const clampedDt = Math.min(dt, SWEEP_DURATION_MS);
-
-        // Calculate sweep increment based on delta time
-        const deltaAngle = (clampedDt / SWEEP_DURATION_MS) * 360;
-        const nextAngle = currentAngle + deltaAngle; // Grow continuously to prevent browser compositor matrix resets
-
-        // Update sweep rotation visually
-        if (sweepEl) {
-            sweepEl.style.transform = `translateZ(0) rotate(${nextAngle}deg)`;
-        }
+        // Calculate sweep increment based on absolute clock time to prevent drift with CSS animation
+        const elapsed = (timestamp - startTimestamp) % SWEEP_DURATION_MS;
+        const nextAngle = (elapsed / SWEEP_DURATION_MS) * 360;
 
         // Check which aircraft are passed over by the radar beam during this frame (using modulo angles)
         checkSweptAircraft(currentAngle % 360, nextAngle % 360);
@@ -1147,13 +1140,12 @@ function triggerAircraftSweep(hex) {
         ac.pendingUpdate = null;
     }
 
-    // Trigger phosphor flash excitation animation (reflow-free using setTimeout)
+    // Trigger opacity flash excitation state (reflow-free, GPU compositor only)
     const markerDom = document.getElementById(`marker-${safeHex}`);
     if (markerDom) {
         markerDom.classList.add('swept-flash');
         setTimeout(() => {
-            const el = document.getElementById(`marker-${safeHex}`);
-            if (el) el.classList.remove('swept-flash');
+            markerDom.classList.remove('swept-flash');
         }, 200);
     }
 
@@ -1162,13 +1154,21 @@ function triggerAircraftSweep(hex) {
         renderTelemetryDetails(hex);
     }
 
-    // Refresh telemetry values in the sidebar list for this plane
+    // Refresh telemetry values in the sidebar list for this plane only if they changed to prevent layout thrashing
     const rowEl = document.getElementById(`row-${safeHex}`);
-    if (rowEl) {
-        rowEl.querySelector('.col-alt').innerText = ac.isOnGround ? 'GND' : (ac.alt ? formatNumber(ac.alt) : '0');
-        rowEl.querySelector('.col-spd').innerText = ac.speed ? ac.speed : '0';
+    if (rowEl && rowEl.children.length >= 4) {
+        const altText = ac.isOnGround ? 'GND' : (ac.alt ? formatNumber(ac.alt) : '0');
+        const spdText = ac.speed ? ac.speed.toString() : '0';
         const distVal = ac.dist;
-        rowEl.querySelector('.col-dst').innerText = distVal < 10 ? distVal.toFixed(3) : distVal.toFixed(1);
+        const dstText = distVal < 10 ? distVal.toFixed(3) : distVal.toFixed(1);
+
+        const altEl = rowEl.children[1];
+        const spdEl = rowEl.children[2];
+        const dstEl = rowEl.children[3];
+
+        if (altEl && altEl.textContent !== altText) altEl.textContent = altText;
+        if (spdEl && spdEl.textContent !== spdText) spdEl.textContent = spdText;
+        if (dstEl && dstEl.textContent !== dstText) dstEl.textContent = dstText;
     }
 
     return needsListUpdate;
