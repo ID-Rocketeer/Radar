@@ -461,18 +461,29 @@ if (document.readyState === 'loading') {
     initializeRadarSystem();
 }
 
-// Update scope dimension and zoom limits on window resize
-window.addEventListener('resize', () => {
-    if (map) {
-        map.invalidateSize({ panTo: isSelectionMode });
-        if (!isSelectionMode) {
-            map.setView([HOME_LAT, HOME_LON], map.getZoom(), { animate: false });
+// Monitor actual DOM element size changes using ResizeObserver to ensure 
+// Leaflet updates its size cache and projections only after the browser has completed layout reflow.
+const mapEl = document.getElementById('map');
+if (mapEl) {
+    const resizeObserver = new ResizeObserver(() => {
+        if (map) {
+            if (isProgrammaticChange) return;
+            isProgrammaticChange = true;
+            try {
+                map.invalidateSize({ panTo: isSelectionMode });
+                if (!isSelectionMode) {
+                    map.setView([HOME_LAT, HOME_LON], map.getZoom(), { animate: false });
+                }
+                updateMinZoom();
+                updateSweepSize();
+                updateDisplayedRange();
+            } finally {
+                isProgrammaticChange = false;
+            }
         }
-    }
-    updateMinZoom();
-    updateSweepSize();
-    updateDisplayedRange();
-});
+    });
+    resizeObserver.observe(mapEl);
+}
 
 /* ==========================================================================
    MAP SETUP
@@ -541,17 +552,26 @@ function initMap() {
     document.getElementById('zoom-in').addEventListener('click', () => map.zoomIn());
     document.getElementById('zoom-out').addEventListener('click', () => map.zoomOut());
 
-    // Bind zoom/pan events to dynamically update marker visibility (viewport pruning) and displayed range
-    // When not in location calibration mode, enforce that the map center remains locked exactly on Home coordinates.
+
+
+    // Map movement and zoom completion lifecycle listener
     map.on('moveend zoomend', () => {
-        if (!isSelectionMode) {
-            const center = map.getCenter();
-            if (Math.abs(center.lat - HOME_LAT) > 0.00001 || Math.abs(center.lng - HOME_LON) > 0.00001) {
-                map.setView([HOME_LAT, HOME_LON], map.getZoom(), { animate: false });
+        if (isProgrammaticChange) return;
+        isProgrammaticChange = true;
+        try {
+            if (!isSelectionMode) {
+                const center = map.getCenter();
+                if (Math.abs(center.lat - HOME_LAT) > 0.00001 || Math.abs(center.lng - HOME_LON) > 0.00001) {
+                    map.setView([HOME_LAT, HOME_LON], map.getZoom(), { animate: false });
+                }
             }
+            updateMinZoom();
+            updateSweepSize();
+            updateMapMarkersVisibility();
+            updateDisplayedRange();
+        } finally {
+            isProgrammaticChange = false;
         }
-        updateMapMarkersVisibility();
-        updateDisplayedRange();
     });
 }
 
@@ -803,7 +823,7 @@ function updateMinZoom() {
             initialZoomSet = true;
         }
     } catch (e) {
-        // Map projection or bounds not ready yet
+        console.error("Error in updateMinZoom:", e);
     }
 }
 
@@ -861,7 +881,7 @@ function updateSweepSize() {
             });
         }
     } catch (e) {
-        // Map projection not ready yet
+        console.error("Error in updateSweepSize:", e);
     }
 }
 
@@ -919,8 +939,8 @@ function startRadarSweep() {
     let lastTime = null;
     let currentAngle = 0;
 
-    // Update sweep size on map zoom and view reset
-    map.on('zoom viewreset', updateSweepSize);
+    // Update sweep size on map zoom completion and view reset
+    map.on('zoomend viewreset', updateSweepSize);
 
     function animate(timestamp) {
         if (lastTime === null) {
@@ -2086,6 +2106,7 @@ function getZoomForRange(range) {
         const val = (targetRadiusPx * metersPerPixelAtZoom0) / denominator;
         return Math.log2(val);
     } catch (e) {
+        console.error("Error in getZoomForRange:", e);
         return 8;
     }
 }
