@@ -69,6 +69,8 @@ let rangeRings = [];
 let activeAircraft = {}; // Holds aircraft metadata and map instances
 let selectedHex = null;
 let trackedHex = null; // Currently tracked aircraft HEX address (Easter Egg)
+let hexClickCount = 0; // Click counter for gesture activation
+let lastHexClickTime = 0; // Click timestamp for gesture timeout
 let activeFilter = 'all'; // 'all', 'mil', 'commercial', 'ga'
 let trailsEnabled = true;
 let lowAltitudeFilterEnabled = false; // Filter modifier for low-altitude targets
@@ -1833,6 +1835,8 @@ function updateMarkerVisibility(hex) {
 function selectAircraft(hex) {
     // Break target tracking lock if selection changes or is cleared
     trackedHex = null;
+    hexClickCount = 0;
+    lastHexClickTime = 0;
 
     const targetHex = (selectedHex === hex) ? null : hex;
 
@@ -1952,14 +1956,29 @@ function renderTelemetryDetails(hex) {
     const toggleBtn = document.getElementById(`hex-toggle-${ac.hex}`);
     if (toggleBtn) {
         toggleBtn.addEventListener('click', () => {
+            const now = Date.now();
             if (trackedHex === ac.hex) {
-                trackedHex = null; // Turn off tracking
+                // Single tap is sufficient to deactivate
+                trackedHex = null;
+                hexClickCount = 0;
+                lastHexClickTime = 0;
+                renderTelemetryDetails(ac.hex);
             } else {
-                trackedHex = ac.hex; // Turn on tracking
-                // Center the scope immediately on target lock
-                updateRadarCenter(ac.lat, ac.lon);
+                // Triple-click verification to activate tracking
+                if (now - lastHexClickTime > 1500) {
+                    hexClickCount = 0;
+                }
+                lastHexClickTime = now;
+                hexClickCount++;
+                
+                if (hexClickCount >= 3) {
+                    trackedHex = ac.hex;
+                    hexClickCount = 0;
+                    lastHexClickTime = 0;
+                    updateRadarCenter(ac.lat, ac.lon);
+                    renderTelemetryDetails(ac.hex);
+                }
             }
-            renderTelemetryDetails(ac.hex); // Re-render instantly to update colors
         });
     }
 }
