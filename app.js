@@ -502,7 +502,7 @@ function initMap() {
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         maxZoom: 20,
-        minZoom: 4
+        minZoom: 0
     }).addTo(map);
 
     // Draw range rings around home location (1 NM = 1852 meters)
@@ -1769,11 +1769,11 @@ function initLocationSelection() {
         // Clamp latitude to Web Mercator limits and normalize longitude beyond +/-180
         newLat = Math.max(-85.05112878, Math.min(85.05112878, newLat));
         newLon = ((newLon + 180) % 360 + 360) % 360 - 180;
-        const inputRangeClamped = Math.max(0.001, Math.min(newRange, 250));
+        const inputRangeClamped = Math.max(0.001, Math.min(newRange, 20000));
 
         tempLat = newLat;
         tempLon = newLon;
-        tempRange = Math.max(2, Math.min(newRange, 250));
+        tempRange = Math.max(2, Math.min(newRange, 20000));
 
         // Sync inputs with the parsed/clamped values in case they typed out of bounds
         latInput.value = tempLat.toFixed(5);
@@ -1787,8 +1787,8 @@ function initLocationSelection() {
         // Temporarily unbind map moveend events to prevent loop feedback
         map.off('move drag zoom', handleSelectionMapChange);
 
-        // Update map zoom limits for the new latitude, allowing precision zoom up to level 20
-        const minZoomSelection = getZoomForRange(250);
+        // Allow global zoom out (0) up to level 20
+        const minZoomSelection = 0;
         const maxZoomSelection = 20;
         map.setMinZoom(minZoomSelection);
         map.setMaxZoom(maxZoomSelection);
@@ -1843,7 +1843,7 @@ function enterSelectionMode() {
     tempLat = HOME_LAT;
     tempLon = HOME_LON;
     const currentDisplayed = getDisplayedRange();
-    tempRange = Math.max(2, Math.min(currentDisplayed, 250));
+    tempRange = Math.max(2, currentDisplayed);
 
     // Pause target polling and sweep line rotation
     stopPolling();
@@ -1894,8 +1894,8 @@ function enterSelectionMode() {
         rangeInput.value = rangeVal < 10 ? rangeVal.toFixed(3) : rangeVal.toFixed(1);
     }
 
-    // Dynamically calculate selection zoom bounds, allowing high-precision zoom up to level 20
-    const minZoomSelection = getZoomForRange(250);
+    // Allow global zoom out (0) up to high-precision zoom level (20) during selection
+    const minZoomSelection = 0;
     const maxZoomSelection = 20;
     
     map.setMinZoom(minZoomSelection);
@@ -1937,7 +1937,7 @@ function handleSelectionMapChange() {
     const edgeLatLng = map.layerPointToLatLng([centerPoint.x + visibleRadiusPx, centerPoint.y]);
     
     let displayedRange = calcDistance(tempLat, tempLon, edgeLatLng.lat, edgeLatLng.lng);
-    tempRange = Math.max(2, Math.min(displayedRange, 250));
+    tempRange = Math.max(2, displayedRange);
 
 
 
@@ -2005,7 +2005,7 @@ function exitSelectionMode(confirmChanges) {
         // Commit changes to system variables and normalize them
         HOME_LAT = Math.max(-85.05112878, Math.min(85.05112878, tempLat));
         HOME_LON = ((tempLon + 180) % 360 + 360) % 360 - 180;
-        RANGE_NM = tempRange;
+        RANGE_NM = Math.min(tempRange, 250); // Snap range back to API limit of 250 NM
 
         // Update address bar query parameters dynamically without a page refresh
         const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${Math.round(RANGE_NM)}`;
