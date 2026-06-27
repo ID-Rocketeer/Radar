@@ -41,6 +41,10 @@ let RANGE_NM = parseFloat(rawRange);
 if (isNaN(HOME_LAT)) HOME_LAT = defaultLat;
 if (isNaN(HOME_LON)) HOME_LON = defaultLon;
 
+// Clamp latitude to Web Mercator limits and wrap longitude using modulo 360
+HOME_LAT = Math.max(-85.05112878, Math.min(85.05112878, HOME_LAT));
+HOME_LON = ((HOME_LON + 180) % 360 + 360) % 360 - 180;
+
 // Validate and cap range. The Airplanes.live API limits point queries to 250 NM.
 // We set a minimum query/ring range of 2 NM to maintain data density limits,
 // although the visual map zoom is allowed to go closer (up to level 20).
@@ -49,6 +53,10 @@ if (isNaN(RANGE_NM)) {
 } else {
     RANGE_NM = Math.max(2, Math.min(RANGE_NM, 250));
 }
+
+// Sync address bar URL with normalized coordinates on load
+const initialNormalizedUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${Math.round(RANGE_NM)}`;
+window.history.replaceState({ path: initialNormalizedUrl }, '', initialNormalizedUrl);
 
 const SWEEP_DURATION_MS = 10000; // 10s rotation cycle
 const API_POLL_INTERVAL_MS = 5000; // Poll API every 5s
@@ -1758,9 +1766,9 @@ function initLocationSelection() {
         if (isNaN(newLon)) newLon = tempLon;
         if (isNaN(newRange)) newRange = tempRange;
 
-        // Clamp values to valid geographical/system limits
-        newLat = Math.max(-90, Math.min(90, newLat));
-        newLon = Math.max(-180, Math.min(180, newLon));
+        // Clamp latitude to Web Mercator limits and normalize longitude beyond +/-180
+        newLat = Math.max(-85.05112878, Math.min(85.05112878, newLat));
+        newLon = ((newLon + 180) % 360 + 360) % 360 - 180;
         const inputRangeClamped = Math.max(0.001, Math.min(newRange, 250));
 
         tempLat = newLat;
@@ -1931,15 +1939,7 @@ function handleSelectionMapChange() {
     let displayedRange = calcDistance(tempLat, tempLon, edgeLatLng.lat, edgeLatLng.lng);
     tempRange = Math.max(2, Math.min(displayedRange, 250));
 
-    // Update map zoom limits dynamically, allowing precision zoom up to level 20
-    const minZoomSelection = getZoomForRange(250);
-    const maxZoomSelection = 20;
-    if (Math.abs(map.getMinZoom() - minZoomSelection) > 0.01) {
-        map.setMinZoom(minZoomSelection);
-    }
-    if (Math.abs(map.getMaxZoom() - maxZoomSelection) > 0.01) {
-        map.setMaxZoom(maxZoomSelection);
-    }
+
 
     // Update sidebar UI text readouts in real-time (but don't overwrite user's typing active state)
     const latInput = document.getElementById('val-lat');
@@ -2002,9 +2002,9 @@ function exitSelectionMode(confirmChanges) {
     map.setMaxZoom(20);
 
     if (confirmChanges) {
-        // Commit changes to system variables
-        HOME_LAT = tempLat;
-        HOME_LON = tempLon;
+        // Commit changes to system variables and normalize them
+        HOME_LAT = Math.max(-85.05112878, Math.min(85.05112878, tempLat));
+        HOME_LON = ((tempLon + 180) % 360 + 360) % 360 - 180;
         RANGE_NM = tempRange;
 
         // Update address bar query parameters dynamically without a page refresh
