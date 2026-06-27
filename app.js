@@ -70,6 +70,7 @@ let activeAircraft = {}; // Holds aircraft metadata and map instances
 let selectedHex = null;
 let activeFilter = 'all'; // 'all', 'mil', 'commercial', 'ga'
 let trailsEnabled = true;
+let maxTrailPoints = 15; // Dynamically scaled trail length limit
 let targetListDomMap = {}; // Maps hex -> DOM element for target list reconciliation
 let sweepEl = null; // Global reference to the sweep line DOM element
 let sweepActive = true; // Flag to halt/resume sweep line rotation on connection errors
@@ -1238,9 +1239,9 @@ function triggerAircraftSweep(hex) {
             
             if (!isDuplicate) {
                 ac.trail.addLatLng([ac.lat, ac.lon]);
-                // Keep trail length constrained to recent 15 coordinates
-                if (latlngs.length > 15) {
-                    latlngs.shift();
+                // Keep trail length constrained to dynamic maxTrailPoints limit (using splice to prune old points instantly)
+                if (latlngs.length > maxTrailPoints) {
+                    latlngs.splice(0, latlngs.length - maxTrailPoints);
                     ac.trail.setLatLngs(latlngs);
                 }
             }
@@ -1329,6 +1330,16 @@ function processAPIResponse(data) {
 
     const freshHexes = new Set();
     const aircraftList = data.ac || [];
+
+    // Dynamically scale trail length limit based on current airspace density
+    const apiCount = aircraftList.length;
+    if (apiCount > 300) {
+        maxTrailPoints = 20;  // High traffic: contract trails to prevent lag and clutter
+    } else if (apiCount > 100) {
+        maxTrailPoints = 60;  // Medium traffic: moderate detail trails
+    } else {
+        maxTrailPoints = 120; // Low traffic: long, high-resolution trails (up to 10 mins of history)
+    }
 
     aircraftList.forEach(rawAc => {
         const hex = rawAc.hex;
@@ -1444,9 +1455,26 @@ function processAPIResponse(data) {
         }
     });
 
-    // Calculate Option B sweep sector batch size dynamically based on aircraft count (N = INT((n + 360) / 360))
-    const activeCount = Object.keys(activeAircraft).length;
-    sweepBatchSectorSize = Math.max(1, Math.floor((activeCount + 360) / 360));
+    // Calculate visible aircraft count under the current filter and viewport constraints
+    let visibleCount = 0;
+    Object.keys(activeAircraft).forEach(hex => {
+        const ac = activeAircraft[hex];
+        if (!ac.pendingRemoval && ac.visible) {
+            visibleCount++;
+        }
+    });
+
+    // Dynamically scale trail length limit based on currently visible/painted aircraft count
+    if (visibleCount > 300) {
+        maxTrailPoints = 20;  // High traffic visible: contract trails to prevent lag and clutter
+    } else if (visibleCount > 100) {
+        maxTrailPoints = 60;  // Medium traffic visible: moderate detail trails
+    } else {
+        maxTrailPoints = 120; // Low traffic visible: long, high-resolution trails (up to 10 mins of history)
+    }
+
+    // Calculate Option B sweep sector batch size dynamically based on visible aircraft count (N = INT((n + 360) / 360))
+    sweepBatchSectorSize = Math.max(1, Math.floor((visibleCount + 360) / 360));
 
     // Refresh sidebar displays
     updateTargetList();
@@ -1619,6 +1647,8 @@ function updateMarkerVisibility(hex) {
     if (visible && !ac.sweptOnce) {
         visible = false;
     }
+
+    ac.visible = visible;
 
     if (visible) {
         const safeHex = sanitizeId(ac.hex);
