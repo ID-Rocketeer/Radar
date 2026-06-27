@@ -782,9 +782,7 @@ function initControls() {
     const activationSequence = ['s0', 's135', 's270', 's45', 's180', 's315', 's90', 's225'];
     let eggClicks = [];
     let eggStartTime = 0;
-    let deactClicks = [];
-    let deactStartTime = 0;
-    let lastScrewClicks = {}; // Debounce timestamp registry
+    let lastScrewClicks = {}; // Debounce timestamp registry for screws
 
     function getScrewPosition(el) {
         const positions = ['s0', 's45', 's90', 's135', 's180', 's225', 's270', 's315'];
@@ -802,6 +800,9 @@ function initControls() {
             e.preventDefault();
             e.stopPropagation();
 
+            // When active, screws ignore sequence clicks
+            if (warbirdModeActive) return;
+
             const pos = getScrewPosition(screw);
             if (!pos) return;
 
@@ -813,49 +814,73 @@ function initControls() {
             }
             lastScrewClicks[pos] = now;
 
-            if (warbirdModeActive) {
-                // Deactivation: triple-click s0 within 5 seconds
-                if (pos === 's0') {
-                    if (deactClicks.length === 0 || now - deactStartTime > 5000) {
-                        deactClicks = [now];
-                        deactStartTime = now;
-                    } else {
-                        deactClicks.push(now);
-                    }
-                    if (deactClicks.length >= 3) {
-                        warbirdModeActive = false;
-                        localStorage.setItem('codeRedActive', 'false');
-                        deactClicks = [];
-                        refreshWarbirdStyling();
-                    }
-                } else {
-                    deactClicks = [];
+            // Activation: 8-screw sequence within 20 seconds
+            if (eggClicks.length === 0 || now - eggStartTime > 20000) {
+                eggClicks = [];
+                eggStartTime = now;
+            }
+            if (pos === activationSequence[eggClicks.length]) {
+                eggClicks.push(pos);
+                if (eggClicks.length === activationSequence.length) {
+                    warbirdModeActive = true;
+                    localStorage.setItem('codeRedActive', 'true');
+                    eggClicks = [];
+                    refreshWarbirdStyling();
                 }
             } else {
-                // Activation: 8-screw sequence within 20 seconds
-                if (eggClicks.length === 0 || now - eggStartTime > 20000) {
-                    eggClicks = [];
-                    eggStartTime = now;
-                }
-                if (pos === activationSequence[eggClicks.length]) {
+                // Wrong screw — reset, but if this screw is the start of the sequence, begin fresh
+                eggClicks = [];
+                eggStartTime = now;
+                if (pos === activationSequence[0]) {
                     eggClicks.push(pos);
-                    if (eggClicks.length === activationSequence.length) {
-                        warbirdModeActive = true;
-                        localStorage.setItem('codeRedActive', 'true');
-                        eggClicks = [];
-                        refreshWarbirdStyling();
-                    }
-                } else {
-                    // Wrong screw — reset, but if this screw is the start of the sequence, begin fresh
-                    eggClicks = [];
-                    eggStartTime = now;
-                    if (pos === activationSequence[0]) {
-                        eggClicks.push(pos);
-                    }
                 }
             }
         });
     });
+
+    // === CodeRed Easter Egg: Pilot light deactivation handler ===
+    const pilotLight = document.getElementById('codered-light');
+    if (pilotLight) {
+        // Dynamically append touch expander target for mobile/tablet usability
+        const touchTarget = document.createElement('div');
+        touchTarget.className = 'screw-touch-target';
+        pilotLight.appendChild(touchTarget);
+
+        let deactClicks = [];
+        let deactStartTime = 0;
+        let lastLightClick = 0;
+
+        pilotLight.addEventListener('pointerdown', (e) => {
+            // Only deactivate if CodeRed is active
+            if (!warbirdModeActive) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            const now = Date.now();
+
+            // Debounce: filter stylus tip bounce (ignore events within 300ms)
+            if (now - lastLightClick < 300) {
+                return;
+            }
+            lastLightClick = now;
+
+            // Triple click within 5 seconds to deactivate
+            if (deactClicks.length === 0 || now - deactStartTime > 5000) {
+                deactClicks = [now];
+                deactStartTime = now;
+            } else {
+                deactClicks.push(now);
+            }
+
+            if (deactClicks.length >= 3) {
+                warbirdModeActive = false;
+                localStorage.setItem('codeRedActive', 'false');
+                deactClicks = [];
+                refreshWarbirdStyling();
+            }
+        });
+    }
 
     initLocationSelection();
 }
