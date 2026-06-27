@@ -26,6 +26,9 @@ If you want to serve the application over your local network:
    http://localhost:8080
    ```
 
+### Automatic Location Detection
+On startup, the system automatically checks your location using a double-redundant IP Geolocation query to snap the radar coordinates to your local town. If the query fails or times out, it defaults gracefully to Austin-Bergstrom (AUS).
+
 ---
 
 ## URL Configuration Controls
@@ -71,4 +74,16 @@ If parameters are missing, invalid, or omitted, the application falls back to:
 * **Mobile / Tablet View:**
   * The layout collapses into a single vertical scrollable page. The map automatically scales its circular CRT bezel to fit portrait aspect ratios, and nested scrolling is disabled for standard touchscreen scrolling.
 * **Map Lock:**
-  * Map panning/dragging is disabled to keep the radar origin locked in the center. Selecting a flight from the list or map will keep it selected and zoom out dynamically if the flight flies out of the visible scope.
+  Map panning/dragging is disabled to keep the radar origin locked in the center. Selecting a flight from the list or map will keep it selected and zoom out dynamically if the flight flies out of the visible scope.
+
+* **Interactive Location Calibration**:
+  Clicking the **SELECT LOCATION** button unlocks the map canvas. You can drag and zoom the map to align your home base under the center crosshairs, type coordinates directly into the fields, or click **LOCATE ME** to run a triple-redundant query (Device GPS -> Wi-Fi Triangulation -> IP lookup fallback). Click **CONFIRM** to lock in the new station or **CANCEL** to revert.
+  
+* **Dynamic Flight Trails**:
+  Flight trail length is managed by a dynamic scaling engine based on visible traffic:
+  - **Low Traffic (< 100 visible targets)**: Trails grow up to **120 coordinates** (approx. 10–20 minutes of history) to show detailed paths for slow-moving planes.
+  - **Medium Traffic (100 to 300 visible targets)**: Trails contract to **60 coordinates** (approx. 5–10 minutes of history) for a clean balance of detail and performance.
+  - **High Traffic (> 300 visible targets)**: Trails contract to **20 coordinates** (approx. 1.5–3 minutes of history) to protect rendering performance on mobile devices and prevent visual clutter.
+
+* **Low Altitude Filter**:
+  Toggling the **LOW** button restricts the radar display to traffic below the Transition Altitude of 18,000 feet (FL180). This filters out high-altitude commercial cruising overflights, isolating local regional traffic, arrivals, departures, and general aviation.

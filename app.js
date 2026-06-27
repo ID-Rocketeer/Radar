@@ -70,6 +70,7 @@ let activeAircraft = {}; // Holds aircraft metadata and map instances
 let selectedHex = null;
 let activeFilter = 'all'; // 'all', 'mil', 'commercial', 'ga'
 let trailsEnabled = true;
+let lowAltitudeFilterEnabled = false; // Filter modifier for low-altitude targets
 let maxTrailPoints = 15; // Dynamically scaled trail length limit
 let targetListDomMap = {}; // Maps hex -> DOM element for target list reconciliation
 let sweepEl = null; // Global reference to the sweep line DOM element
@@ -649,7 +650,6 @@ function initControls() {
     const trailBtn = document.getElementById('trail-toggle');
     trailBtn.addEventListener('click', () => {
         trailsEnabled = !trailsEnabled;
-        trailBtn.innerHTML = `TRAILS: ${trailsEnabled ? 'ON' : 'OFF'}`;
         trailBtn.classList.toggle('active', trailsEnabled);
         
         // Hide or show all current trails
@@ -663,6 +663,53 @@ function initControls() {
             }
         });
     });
+
+    // Low Altitude Filter Toggle Button
+    const lowAltitudeBtn = document.getElementById('low-altitude-toggle');
+    if (lowAltitudeBtn) {
+        lowAltitudeBtn.addEventListener('click', () => {
+            lowAltitudeFilterEnabled = !lowAltitudeFilterEnabled;
+            lowAltitudeBtn.classList.toggle('active', lowAltitudeFilterEnabled);
+
+            // Update visibility of all current markers
+            Object.keys(activeAircraft).forEach(hex => {
+                updateMarkerVisibility(hex);
+            });
+
+            // Recalculate visible count and dynamic scaling limits instantly
+            let visibleCount = 0;
+            Object.keys(activeAircraft).forEach(hex => {
+                const ac = activeAircraft[hex];
+                if (!ac.pendingRemoval && ac.visible) {
+                    visibleCount++;
+                }
+            });
+
+            if (visibleCount > 300) {
+                maxTrailPoints = 20;
+            } else if (visibleCount > 100) {
+                maxTrailPoints = 60;
+            } else {
+                maxTrailPoints = 120;
+            }
+
+            sweepBatchSectorSize = Math.max(1, Math.floor((visibleCount + 360) / 360));
+
+            // Instantly apply trail length constraint to active trails
+            Object.values(activeAircraft).forEach(ac => {
+                if (ac.trail) {
+                    const latlngs = ac.trail.getLatLngs();
+                    if (latlngs.length > maxTrailPoints) {
+                        latlngs.splice(0, latlngs.length - maxTrailPoints);
+                        ac.trail.setLatLngs(latlngs);
+                    }
+                }
+            });
+
+            // Refresh target list sidebar
+            updateTargetList();
+        });
+    }
 
     // Fullscreen Toggle Button
     const fullscreenBtn = document.getElementById('fullscreen-toggle');
@@ -688,7 +735,6 @@ function initControls() {
     function updateFullscreenUI() {
         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
         if (fullscreenBtn) {
-            fullscreenBtn.innerHTML = `FULLSCREEN: ${isFullscreen ? 'ON' : 'OFF'}`;
             fullscreenBtn.classList.toggle('active', isFullscreen);
         }
         if (map) {
@@ -1522,6 +1568,7 @@ function updateTargetList() {
     // Filter and sort active aircraft list
     const filteredAc = Object.values(activeAircraft).filter(ac => {
         if (!ac.sweptOnce) return false; // Hide unswept targets from list
+        if (lowAltitudeFilterEnabled && ac.alt >= 18000) return false;
         if (activeFilter === 'mil') return ac.mil || isActiveWarbird(ac);
         if (activeFilter === 'commercial') return isCommercialAircraft(ac);
         if (activeFilter === 'ga') return !ac.mil && !isCommercialAircraft(ac);
@@ -1637,6 +1684,11 @@ function updateMarkerVisibility(hex) {
     if (activeFilter === 'mil' && !(ac.mil || isActiveWarbird(ac))) visible = false;
     else if (activeFilter === 'commercial' && !isCommercialAircraft(ac)) visible = false;
     else if (activeFilter === 'ga' && (ac.mil || isCommercialAircraft(ac))) visible = false;
+
+    // Low Altitude filter check
+    if (visible && lowAltitudeFilterEnabled && ac.alt >= 18000) {
+        visible = false;
+    }
 
     // Viewport bounds pruning check
     if (visible && !isAircraftInViewport(ac)) {

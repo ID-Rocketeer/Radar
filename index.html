@@ -93,10 +93,13 @@
                         </div>
                         <div class="panel-controls">
                             <button class="retro-btn active" id="trail-toggle">
-                                TRAILS: ON
+                                TRAILS
+                            </button>
+                            <button class="retro-btn" id="low-altitude-toggle">
+                                LOW
                             </button>
                             <button class="retro-btn" id="fullscreen-toggle">
-                                FULLSCREEN: OFF
+                                FULLSCREEN
                             </button>
                         </div>
                         <div class="panel-controls location-controls" style="margin-top: 6px;">
@@ -256,10 +259,16 @@
 
                 <h3>3. SYSTEM FEATURES</h3>
                 <ul>
-                    <li><strong>TRAILS Toggle:</strong> Show or hide historical breadcrumbs.</li>
-                    <li><strong>FULLSCREEN Toggle:</strong> Expand scope view to fit screen.</li>
-                    <li><strong>TARGET FILTERS:</strong> Switch scope display between All traffic, Military only, Commercial, or General Aviation.</li>
-                    <li><strong>SELECT LOCATION:</strong> Recalibrate the radar home station coordinates and range. Click the button to enter calibration mode, which enables the LATITUDE, LONGITUDE, and RANGE fields for manual text input, and unlocks map panning and zooming. Drag the map to align the desired home location under the center crosshair reticle, zoom the map to adjust the visual range boundary, or type values directly into the active input fields, then click <strong>CONFIRM</strong> to apply or <strong>CANCEL</strong> to abort.</li>
+                    <li><strong>CONSOLE STATUS:</strong> The status bezel indicates the application state. On load, the system starts in <code>STANDBY</code> (unlit). Once a connection is successfully established with the telemetry API, it switches to <code>SCANNING</code> (illuminated green). Connection loss triggers <code>LINK ERROR</code> (unlit).</li>
+                    <li><strong>CONFIGURATION TOGGLES:</strong> The configuration panel features three toggle controls whose states are indicated by illumination (illuminated green/amber for ON, dark for OFF):
+                        <ul>
+                            <li><strong>TRAILS:</strong> Toggles historical breadcrumb tracking on the scope.</li>
+                            <li><strong>LOW:</strong> Filters out all high-altitude cruising traffic above the Transition Altitude of 18,000 feet (FL180), displaying only local air traffic.</li>
+                            <li><strong>FULLSCREEN:</strong> Expands the radar display area to fill the screen bounds.</li>
+                        </ul>
+                    </li>
+                    <li><strong>TARGET FILTERS:</strong> Restricts radar sweeps to specific target categories: <code>ALL</code> traffic, <code>MILITARY ONLY</code>, <code>COMMERCIAL</code> airliners, or <code>GENERAL & OTHER</code> aviation.</li>
+                    <li><strong>SELECT LOCATION:</strong> Recalibrates the home station coordinates. Click to enter calibration mode (inputs unlocked, map draggable). You can type new values directly, drag/zoom the map to reposition, or click <strong>LOCATE ME</strong> to auto-locate using your device's GPS, cell-triangulation, or IP address. Click <strong>CONFIRM</strong> to apply the new coordinates or <strong>CANCEL</strong> to abort.</li>
                 </ul>
 
                 <h3>4. DATA & MAP CREDITS</h3>
