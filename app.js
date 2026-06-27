@@ -82,6 +82,7 @@ let tempLat = HOME_LAT;
 let tempLon = HOME_LON;
 let tempRange = RANGE_NM;
 let isProgrammaticChange = false;
+let cachedDisplayedRange = RANGE_NM; // Cache to prevent layout thrashing from getBoundingClientRect()
 
 // Global bearing-based index (360 buckets of Sets, one for each degree)
 let bearingBuckets = Array.from({ length: 360 }, () => new Set());
@@ -373,6 +374,7 @@ function initializeRadarSystem() {
     setTimeout(() => {
         updateMinZoom();
         updateSweepSize();
+        recalculateDisplayedRange();
         updateDisplayedRange();
     }, 100);
 
@@ -476,6 +478,7 @@ if (mapEl) {
                 }
                 updateMinZoom();
                 updateSweepSize();
+                recalculateDisplayedRange();
                 updateDisplayedRange();
             } finally {
                 isProgrammaticChange = false;
@@ -568,6 +571,7 @@ function initMap() {
             updateMinZoom();
             updateSweepSize();
             updateMapMarkersVisibility();
+            recalculateDisplayedRange();
             updateDisplayedRange();
         } finally {
             isProgrammaticChange = false;
@@ -888,9 +892,10 @@ function updateSweepSize() {
     }
 }
 
-// Helper to get the currently displayed range in NM based on the map zoom and bezel diameter
-function getDisplayedRange() {
-    if (!map) return RANGE_NM;
+// Recalculates and caches the currently displayed range in NM based on the map zoom and bezel diameter.
+// Call this function ONLY when the map size, zoom, or center changes, avoiding forced reflows in rendering loops.
+function recalculateDisplayedRange() {
+    if (!map) return;
     try {
         const centerLatLng = map.getCenter();
         const centerPoint = map.latLngToLayerPoint(centerLatLng);
@@ -902,10 +907,15 @@ function getDisplayedRange() {
         if (!isSelectionMode && Math.abs(map.getZoom() - map.getMinZoom()) < 0.05) {
             displayedRange = RANGE_NM;
         }
-        return displayedRange;
+        cachedDisplayedRange = displayedRange;
     } catch (e) {
-        return RANGE_NM;
+        cachedDisplayedRange = RANGE_NM;
     }
+}
+
+// Helper to get the cached displayed range in O(1) time
+function getDisplayedRange() {
+    return cachedDisplayedRange;
 }
 
 // Dynamically calculate and report the physical range currently displayed at the visible bezel edge
@@ -2057,6 +2067,7 @@ function exitSelectionMode(confirmChanges) {
     // Reset zoom snap and snap the zoom level to match the new or original range ring diameter
     updateMinZoom();
     updateSweepSize();
+    recalculateDisplayedRange();
     updateDisplayedRange();
 
     // Redraw and lock range rings back to center with proper range
