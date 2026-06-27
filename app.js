@@ -457,10 +457,66 @@ function initializeRadarSystem() {
     });
 }
 
-if (document.readyState === 'loading') {
-    window.addEventListener('DOMContentLoaded', initializeRadarSystem);
-} else {
+async function getIPLocation() {
+    // Try ipwho.is first (extremely CORS/HTTPS friendly and keyless)
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout guard
+        const response = await fetch('https://ipwho.is/', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data.success && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+                return { lat: data.latitude, lon: data.longitude };
+            }
+        }
+    } catch (e) {
+        console.warn("Silent ipwho.is lookup failed, trying fallback.", e);
+    }
+
+    // Try ipapi.co as secondary fallback
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout guard
+        const response = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+            const data = await response.json();
+            if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+                return { lat: data.latitude, lon: data.longitude };
+            }
+        }
+    } catch (e) {
+        console.warn("Silent ipapi.co fallback failed.", e);
+    }
+
+    return null;
+}
+
+async function autoDetectLocationAndInit() {
+    const hasLat = urlParams.has('lat') || urlParams.has('latitude');
+    const hasLon = urlParams.has('long') || urlParams.has('longitude') || urlParams.has('lon') || urlParams.has('lng');
+
+    if (!hasLat || !hasLon) {
+        const coords = await getIPLocation();
+        if (coords) {
+            HOME_LAT = Math.max(-85.05112878, Math.min(85.05112878, coords.lat));
+            HOME_LON = ((coords.lon + 180) % 360 + 360) % 360 - 180;
+            
+            // Update URL silently to reflect IP location
+            const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${Math.round(RANGE_NM)}`;
+            window.history.replaceState(null, '', newUrl);
+        }
+    }
+
+    // Now initialize the radar system
     initializeRadarSystem();
+}
+
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', autoDetectLocationAndInit);
+} else {
+    autoDetectLocationAndInit();
 }
 
 // Monitor actual DOM element size changes using ResizeObserver to ensure 
@@ -1778,11 +1834,15 @@ function sanitizeId(str) {
    ========================================================================== */
 function initLocationSelection() {
     const selectBtn = document.getElementById('location-select-btn');
+    const locateBtn = document.getElementById('location-locate-btn');
     const confirmBtn = document.getElementById('location-confirm-btn');
     const cancelBtn = document.getElementById('location-cancel-btn');
 
     if (selectBtn) {
         selectBtn.addEventListener('click', enterSelectionMode);
+    }
+    if (locateBtn) {
+        locateBtn.addEventListener('click', handleGPSLocate);
     }
     if (confirmBtn) {
         confirmBtn.addEventListener('click', () => exitSelectionMode(true));
@@ -1912,6 +1972,7 @@ function enterSelectionMode() {
 
     // Toggle button visibilities in sidebar
     document.getElementById('location-select-btn').style.display = 'none';
+    document.getElementById('location-locate-btn').style.display = 'inline-block';
     document.getElementById('location-confirm-btn').style.display = 'inline-block';
     document.getElementById('location-cancel-btn').style.display = 'inline-block';
 
@@ -2022,6 +2083,7 @@ function exitSelectionMode(confirmChanges) {
 
     // Toggle button visibility back to default
     document.getElementById('location-select-btn').style.display = 'inline-block';
+    document.getElementById('location-locate-btn').style.display = 'none';
     document.getElementById('location-confirm-btn').style.display = 'none';
     document.getElementById('location-cancel-btn').style.display = 'none';
 
@@ -2107,6 +2169,102 @@ function exitSelectionMode(confirmChanges) {
         sweepEl.style.display = 'block';
         updateSweepSize();
     }
+}
+
+function handleGPSLocate() {
+    const locateBtn = document.getElementById('location-locate-btn');
+    if (!locateBtn) return;
+
+    const originalText = "LOCATE ME";
+
+    // Browser geolocation requires HTTPS context (except localhost)
+    if (!navigator.geolocation) {
+        console.warn("Geolocation is not supported by this browser or requires an HTTPS context.");
+        locateBtn.innerText = "HTTPS REQUIRED";
+        locateBtn.style.color = "#ffaa00";
+        locateBtn.style.borderColor = "rgba(255, 170, 0, 0.45)";
+        setTimeout(() => {
+            locateBtn.innerText = originalText;
+            locateBtn.style.color = "#d4ff00";
+            locateBtn.style.borderColor = "rgba(212, 255, 0, 0.45)";
+        }, 3000);
+        return;
+    }
+
+    locateBtn.innerText = "LOCATING...";
+    locateBtn.disabled = true;
+
+    // Helper to query location with dynamic accuracy
+    function performLocate(highAccuracy) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                locateBtn.innerText = originalText;
+                locateBtn.disabled = false;
+
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                // Update selection state coordinates
+                tempLat = Math.max(-85.05112878, Math.min(85.05112878, lat));
+                tempLon = ((lon + 180) % 360 + 360) % 360 - 180;
+
+                // Re-center Leaflet map (this automatically triggers handleSelectionMapChange)
+                if (map) {
+                    map.setView([tempLat, tempLon]);
+                }
+            },
+            (error) => {
+                // If high accuracy failed or timed out, immediately fall back to low accuracy
+                if (highAccuracy) {
+                    console.info("High-accuracy lookup failed, falling back to standard accuracy...");
+                    performLocate(false);
+                } else {
+                    // Both high and low accuracy failed (common on desktops with OS Location Services disabled)
+                    console.warn("GPS/Wi-Fi lookup failed completely, falling back to IP Geolocation:", error);
+                    locateBtn.innerText = "USING IP...";
+
+                    getIPLocation().then((coords) => {
+                        if (coords) {
+                            locateBtn.innerText = originalText;
+                            locateBtn.disabled = false;
+
+                            tempLat = Math.max(-85.05112878, Math.min(85.05112878, coords.lat));
+                            tempLon = ((coords.lon + 180) % 360 + 360) % 360 - 180;
+
+                            if (map) {
+                                map.setView([tempLat, tempLon]);
+                            }
+                        } else {
+                            // Even IP lookup failed
+                            let errMsg = "LOCATE FAILED";
+                            if (error.code === 1) errMsg = "PERMISSION DENIED";
+                            else if (error.code === 2) errMsg = "POSITION UNAVAIL";
+                            else if (error.code === 3) errMsg = "TIMEOUT";
+
+                            locateBtn.innerText = errMsg;
+                            locateBtn.style.color = "#ffaa00";
+                            locateBtn.style.borderColor = "rgba(255, 170, 0, 0.45)";
+
+                            setTimeout(() => {
+                                locateBtn.innerText = originalText;
+                                locateBtn.disabled = false;
+                                locateBtn.style.color = "#d4ff00";
+                                locateBtn.style.borderColor = "rgba(212, 255, 0, 0.45)";
+                            }, 2500);
+                        }
+                    });
+                }
+            },
+            {
+                enableHighAccuracy: highAccuracy,
+                timeout: highAccuracy ? 3000 : 8000, // 3-second limit for GPS, 8-second limit for Wi-Fi before IP fallback
+                maximumAge: highAccuracy ? 0 : 300000 // Allow cached location for fallback
+            }
+        );
+    }
+
+    // Try high accuracy first
+    performLocate(true);
 }
 
 function getZoomForRange(range) {
