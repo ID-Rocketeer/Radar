@@ -59,7 +59,6 @@ const initialNormalizedUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed
 window.history.replaceState({ path: initialNormalizedUrl }, '', initialNormalizedUrl);
 
 const SWEEP_DURATION_MS = 10000; // 10s rotation cycle
-const API_POLL_INTERVAL_MS = 5000; // Poll API every 5s
 
 // Map and tracking states
 let map;
@@ -135,6 +134,8 @@ const AIRCRAFT_ICONS = {
 // Military type designators for WWII-era fighters, bombers, patrol, and trainer aircraft.
 // Only military designations qualify (e.g. C47 yes, DC3 no).
 const WARBIRD_TYPE_CODES = new Set([
+    // Lockheed Constellation. No it isn't a warbird, but if either of the two remaining flying examples is in the air I want to be able to highlight them.
+    'CONI',
     // USAAF Fighters
     'P36', 'P38', 'P39', 'P40', 'P47', 'P51', 'P61', 'P63', 'P82',
     // USAAF Bombers & Attack
@@ -382,12 +383,11 @@ function updateRadarCenter(newLat, newLon) {
 function startPolling() {
     if (pollIntervalId) return; // Already polling
     pollFlightData();
-    pollIntervalId = setInterval(pollFlightData, API_POLL_INTERVAL_MS);
 }
 
 function stopPolling() {
     if (pollIntervalId) {
-        clearInterval(pollIntervalId);
+        clearTimeout(pollIntervalId);
         pollIntervalId = null;
     }
     if (activePollController) {
@@ -1391,6 +1391,10 @@ function triggerAircraftSweep(hex) {
    API DATA RETRIEVAL (AIRPLANES.LIVE)
    ========================================================================== */
 function pollFlightData() {
+    if (pollIntervalId) {
+        clearTimeout(pollIntervalId);
+        pollIntervalId = null;
+    }
     if (activePollController) {
         activePollController.abort();
     }
@@ -1407,6 +1411,21 @@ function pollFlightData() {
         .then(data => {
             activePollController = null;
             processAPIResponse(data);
+            
+            // Calculate delay to hit 1.5 seconds after the next 10s server boundary
+            const serverNow = data.now; // Server epoch ms
+            const localNow = Date.now();
+            
+            let delay = 10000; // Default fallback to 10s
+            if (typeof serverNow === 'number' && !isNaN(serverNow)) {
+                const clockOffset = serverNow - localNow;
+                const nextServerTick = Math.ceil(serverNow / 10000) * 10000 + 1500;
+                const targetLocalTime = nextServerTick - clockOffset;
+                delay = Math.max(1000, targetLocalTime - Date.now()); // Clamped min 1s
+            }
+            
+            // Schedule the next poll recursively
+            pollIntervalId = setTimeout(pollFlightData, delay);
         })
         .catch(err => {
             if (err.name === 'AbortError') return; // Ignore programmatic aborts
@@ -1419,6 +1438,9 @@ function pollFlightData() {
                 titleEl.innerText = "SYS_STATUS: LINK ERROR";
                 document.querySelector('.status-indicator').classList.remove('active');
             }
+            
+            // Schedule fallback poll in 10 seconds
+            pollIntervalId = setTimeout(pollFlightData, 10000);
         });
 }
 
