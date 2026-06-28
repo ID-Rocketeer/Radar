@@ -92,27 +92,27 @@
                             </div>
                         </div>
                         <div class="panel-controls">
-                            <button class="retro-btn active" id="trail-toggle">
+                            <button class="retro-btn active" id="trail-toggle" title="Toggle target historical breadcrumbs">
                                 TRAILS
                             </button>
-                            <button class="retro-btn" id="low-altitude-toggle">
+                            <button class="retro-btn" id="low-altitude-toggle" title="Filter for traffic below 18,000 ft MSL (Transition Altitude)">
                                 LOW
                             </button>
-                            <button class="retro-btn" id="fullscreen-toggle">
+                            <button class="retro-btn" id="fullscreen-toggle" title="Toggle browser fullscreen view">
                                 FULLSCREEN
                             </button>
                         </div>
                         <div class="panel-controls location-controls" style="margin-top: 6px;">
-                            <button class="retro-btn" id="location-select-btn" style="flex: 1; border-color: rgba(0, 255, 85, 0.35);">
+                            <button class="retro-btn" id="location-select-btn" style="flex: 1; border-color: rgba(0, 255, 85, 0.35);" title="Calibrate home station coordinates and sweep range">
                                 SELECT LOCATION
                             </button>
-                            <button class="retro-btn" id="location-locate-btn" style="display: none; flex: 1; color: #d4ff00; border-color: #d4ff00; font-weight: bold;">
+                            <button class="retro-btn" id="location-locate-btn" style="display: none; flex: 1; color: #d4ff00; border-color: #d4ff00; font-weight: bold;" title="Auto-detect current coordinates using GPS or IP">
                                 LOCATE ME
                             </button>
-                            <button class="retro-btn" id="location-confirm-btn" style="display: none; flex: 1; color: var(--phosphor-green-bright); border-color: var(--phosphor-green-bright); font-weight: bold;">
+                            <button class="retro-btn" id="location-confirm-btn" style="display: none; flex: 1; color: var(--phosphor-green-bright); border-color: var(--phosphor-green-bright); font-weight: bold;" title="Save coordinates and range presets">
                                 CONFIRM
                             </button>
-                            <button class="retro-btn" id="location-cancel-btn" style="display: none; flex: 1; color: #ffaa00; border-color: #ffaa00; font-weight: bold;">
+                            <button class="retro-btn" id="location-cancel-btn" style="display: none; flex: 1; color: #ffaa00; border-color: #ffaa00; font-weight: bold;" title="Abort calibration and revert changes">
                                 CANCEL
                             </button>
                         </div>
@@ -122,10 +122,10 @@
                     <section class="sidebar-panel">
                         <h2 class="panel-title">// TARGET FILTERS</h2>
                         <div class="filter-buttons">
-                            <button class="filter-btn active" data-filter="all">ALL</button>
-                            <button class="filter-btn" data-filter="mil">MILITARY ONLY</button>
-                            <button class="filter-btn" data-filter="commercial">COMMERCIAL</button>
-                            <button class="filter-btn" data-filter="ga">GENERAL & OTHER</button>
+                            <button class="filter-btn active" data-filter="all" title="Display all detected air traffic">ALL</button>
+                            <button class="filter-btn" data-filter="mil" title="Display only military air traffic">MILITARY ONLY</button>
+                            <button class="filter-btn" data-filter="commercial" title="Display scheduled airline flights">COMMERCIAL</button>
+                            <button class="filter-btn" data-filter="ga" title="Display general aviation and other light aircraft">GENERAL & OTHER</button>
                         </div>
                     </section>
 
