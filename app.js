@@ -148,7 +148,7 @@ const WARBIRD_TYPE_CODES = new Set([
     // USAAF Bombers & Attack
     'B17', 'B24', 'B25', 'B26', 'B29', 'A20', 'A26',
     // USAAF Trainers
-    'AT6', 'T6', 'BT13', 'BT15', 'PT13', 'PT17', 'PT19', 'PT22', 'PT26',
+    'AT6', 'T6', 'BT13', 'BT15', 'PT13', 'PT17', 'PT19', 'PT22', 'PT26', 'ST75',
     // Military Transport
     'C45', 'C46', 'C47', 'C53', 'C54', 'C60',
     // Fake cargo plane for testing purposes only
@@ -164,9 +164,9 @@ const WARBIRD_TYPE_CODES = new Set([
     // Navy Trainers
     'SNJ', 'N3N', 'SNV',
     // Royal Air Force / British
-    'SPIT', 'HURR', 'HRCN', 'LANC', 'MOSQ', 'TEMP', 'TYPH',
+    'SPIT', 'HURR', 'HRCN', 'LANC', 'MOSQ', 'TEMP', 'TYPH', 'METE', 'BLEN', 'SWOR', 'LYSA', 'GLAD',
     // Axis — German
-    'ME09', 'BF09', 'ME62', 'FW90', 'JU52', 'JU87',
+    'ME09', 'BF09', 'ME62', 'FW90', 'JU52', 'JU87', 'FI15',
     // Axis — Japanese
     'ZERO', 'A6M',
     // Soviet
@@ -182,6 +182,65 @@ function isWarbird(ac) {
 
 function isActiveWarbird(ac) {
     return warbirdModeActive && isWarbird(ac);
+}
+
+function getWarbirdSubtype(ac) {
+    if (!ac || !ac.type) return 'LIGHT';
+    const tc = ac.type.toUpperCase();
+
+    // 1. Jets
+    if (tc === 'ME62' || tc === 'METE') return 'JET';
+
+    // 2. Navy Torpedo Bombers
+    if (['TBD', 'TBF', 'TBM', 'SWOR'].includes(tc)) return 'TORPEDO BOMBER';
+
+    // 3. Navy Patrol Bombers
+    if (['PBY', 'PBM', 'PBJ', 'PV1', 'PV2'].includes(tc)) return 'PATROL BOMBER';
+
+    // 4. Navy Scout Bombers
+    if (['SBD', 'SB2C'].includes(tc)) return 'SCOUT BOMBER';
+
+    // 5. USAAF Primary/Basic/Advanced Trainers & Boeing-Stearman
+    if (tc.startsWith('PT') || tc === 'ST75') return 'PRIMARY TRAINER';
+    if (tc.startsWith('BT')) return 'BASIC TRAINER';
+    if (tc.startsWith('AT') || tc === 'T6') return 'ADVANCED TRAINER';
+
+    // 6. Navy Scout Trainers
+    if (['SNJ', 'SNV'].includes(tc) || tc.startsWith('SN')) return 'SCOUT TRAINER';
+
+    // 7. General/Navy Trainers
+    if (['N3N', 'YK11'].includes(tc) || tc.startsWith('N')) return 'TRAINER';
+
+    // 8. USAAF Pursuit (Fighters)
+    if (tc.startsWith('P') && !tc.startsWith('PB') && !tc.startsWith('PV')) return 'PURSUIT';
+
+    // 9. USAAF Bombers & Attack
+    if (tc.startsWith('B')) return 'BOMBER';
+    if (tc.startsWith('A') && !tc.startsWith('AD')) return 'ATTACK';
+
+    // 10. USAAF & Allied Transports
+    if (tc.startsWith('C') || ['CONI', 'JU52'].includes(tc)) return 'TRANSPORT';
+
+    // 11. Navy / Foreign Fighters
+    const fighters = [
+        'F2A', 'F3F', 'F4F', 'FM1', 'FM2', 'F6F', 'F4U', 'FG1', 'F3A', 'F8F', 'F7F',
+        'SPIT', 'HURR', 'HRCN', 'TEMP', 'TYPH', 'GLAD',
+        'ME09', 'BF09', 'FW90',
+        'ZERO', 'A6M',
+        'YAK3', 'YAK9', 'LA5', 'LA7', 'LA9'
+    ];
+    if (fighters.includes(tc) || tc.startsWith('F')) return 'FIGHTER';
+
+    // 12. Other Attack
+    if (tc === 'IL2' || tc === 'JU87' || tc.startsWith('AD') || tc.startsWith('A')) return 'ATTACK';
+
+    // 13. Other Bombers
+    if (['LANC', 'MOSQ', 'BLEN'].includes(tc)) return 'BOMBER';
+
+    // 14. Liaison / Utility
+    if (['LYSA', 'FI15'].includes(tc)) return 'LIAISON';
+
+    return 'LIGHT';
 }
 
 // Refresh warbird CSS classes on all existing markers, trails, and the target list
@@ -262,8 +321,9 @@ function getAircraftIconType(rawAc) {
         return 'helicopter';
     }
 
-    // 2. Military Fighters / SLEEK jets (Category A4 = High Performance, military prefix types)
-    if (isMil && (category === 'A4' || typeCode.startsWith('F-') || typeCode.startsWith('FA-') || typeCode.startsWith('A-') || ['F15', 'F16', 'F18', 'F22', 'F35', 'A10', 'T38', 'B1', 'B2', 'B52', 'C17', 'C130', 'KC135'].includes(typeCode))) {
+    // 2. Military Fighters / SLEEK jets (Category A4 = High Performance, military prefix types, or specific jet warbirds)
+    const isSleekJet = isMil && (category === 'A4' || typeCode.startsWith('F-') || typeCode.startsWith('FA-') || typeCode.startsWith('A-') || ['F15', 'F16', 'F18', 'F22', 'F35', 'A10', 'T38', 'B1', 'B2', 'B52', 'C17', 'C130', 'KC135'].includes(typeCode));
+    if (isSleekJet || typeCode === 'ME62' || typeCode === 'METE') {
         return 'fighter';
     }
 
@@ -302,7 +362,9 @@ function getAircraftIconType(rawAc) {
         // Match specific common propeller ICAO type designators
         ['B25', 'B17', 'B29', 'P51', 'P47', 'P38', 'C172', 'C152', 'C182', 'C206', 'C208', 'C210', 'C310', 'PA28', 'PA32', 'PA34', 'PA44', 'PA46', 'BE33', 'BE35', 'BE36', 'BE55', 'BE58', 'BE9L', 'BE20', 'BE30', 'B350', 'SR20', 'SR22', 'DA40', 'DA42', 'DA62', 'M20', 'PC12', 'DH8A', 'DH8B', 'DH8C', 'DH8D', 'AT43', 'AT45', 'AT72', 'AT75', 'C47', 'DC3', 'DC4', 'DC6', 'DC7', 'T6', 'AN2', 'AN24', 'AN26', 'A29', 'T34'].includes(typeCode) ||
         // Van's RV kitplanes
-        typeCode.match(/^RV\d+$/)
+        typeCode.match(/^RV\d+$/) ||
+        // Any other warbird that is not one of our jet holdouts
+        (WARBIRD_TYPE_CODES.has(typeCode) && typeCode !== 'ME62' && typeCode !== 'METE')
     );
     if (isPropeller) {
         return 'light';
@@ -2431,7 +2493,11 @@ function renderTelemetryDetails(hex) {
         </div>
         <div class="tel-row">
             <span class="tel-label">CLASSIFICATION:</span>
-            <span class="tel-val ${ac.mil ? 'alert' : (isActiveWarbird(ac) ? 'warbird' : '')}">${ac.mil ? 'MILITARY SECURE' : (isActiveWarbird(ac) ? 'WARBIRD' : 'CIVILIAN AIR TRAFFIC')} (${(ac.iconType || 'jet').toUpperCase()})</span>
+            <span class="tel-val ${ac.mil ? 'alert' : (isActiveWarbird(ac) ? 'warbird' : '')}">
+                ${ac.mil ? `MILITARY SECURE (${(ac.iconType || 'jet').toUpperCase()})` : 
+                  (isActiveWarbird(ac) ? `WARBIRD (${getWarbirdSubtype(ac)})` : 
+                  `CIVILIAN AIR TRAFFIC (${(ac.iconType || 'jet').toUpperCase()})`)}
+            </span>
         </div>
     `;
 
