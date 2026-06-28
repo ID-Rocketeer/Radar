@@ -80,6 +80,13 @@ let sweepActive = true; // Flag to halt/resume sweep line rotation on connection
 let pollIntervalId = null; // ID to track active polling interval
 let activePollController = null; // Controller to abort in-flight API requests
 
+// Audio system states
+let audioCtx = null;
+let masterGain = null;
+let audioEnabled = false;
+let rumblePanner = null; // Global reference to animate rotating 3D panner
+let audioSources = []; // Keeps track of active oscillators, buffer sources, and LFOs
+
 // Location selection calibration states
 let isSelectionMode = false;
 let tempLat = HOME_LAT;
@@ -396,6 +403,445 @@ function stopPolling() {
     }
 }
 
+function createReverbImpulseResponse(audioCtx, duration, decay) {
+    const sampleRate = audioCtx.sampleRate || 44100;
+    const length = Math.max(100, Math.round(sampleRate * duration));
+    const impulse = audioCtx.createBuffer(2, length, sampleRate);
+    const left = impulse.getChannelData(0);
+    const right = impulse.getChannelData(1);
+
+    for (let i = 0; i < length; i++) {
+        // Exponential decay of white noise to simulate room reflections
+        const pct = i / length;
+        const decayFactor = Math.exp(-pct * decay);
+        left[i] = (Math.random() * 2 - 1) * decayFactor;
+        right[i] = (Math.random() * 2 - 1) * decayFactor;
+    }
+    return impulse;
+}
+
+function createPanner(audioCtx, x, y, z) {
+    try {
+        if (!audioCtx.createPanner) return null;
+        const panner = audioCtx.createPanner();
+        panner.panningModel = 'equalpower'; // Lightweight and universally compatible across speaker setups
+        panner.distanceModel = 'inverse';
+        panner.refDistance = 1.0;
+        panner.maxDistance = 10000;
+        panner.rollOffFactor = 1.0;
+        
+        // Support modern AudioParam setter syntax with fallback to legacy setPosition
+        if (panner.positionX && panner.positionX.setValueAtTime) {
+            panner.positionX.setValueAtTime(x, audioCtx.currentTime);
+            panner.positionY.setValueAtTime(y, audioCtx.currentTime);
+            panner.positionZ.setValueAtTime(z, audioCtx.currentTime);
+        } else if (panner.setPosition) {
+            panner.setPosition(x, y, z);
+        }
+        return panner;
+    } catch (e) {
+        console.warn("PannerNode setup failed, falling back to stereo:", e);
+        return null;
+    }
+}
+
+function initAudioEngine() {
+    if (audioCtx) return;
+
+    try {
+        // 1. Create AudioContext (fallback to webkitAudioContext)
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+            console.warn("Web Audio API not supported in this browser.");
+            return;
+        }
+        audioCtx = new AudioContextClass();
+
+        // 2. Master Volume
+        masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(0.55, audioCtx.currentTime); // Standard comfortable volume
+        masterGain.connect(audioCtx.destination);
+
+        // 3. Concrete Room Reverb Node & Send Bus
+        const reverbNode = audioCtx.createConvolver();
+        const reverbSend = audioCtx.createGain();
+        reverbSend.gain.setValueAtTime(0.22, audioCtx.currentTime); // Wet mix level
+
+        try {
+            reverbNode.buffer = createReverbImpulseResponse(audioCtx, 1.3, 6.0); // 1.3 second decay
+            reverbSend.connect(reverbNode);
+            reverbNode.connect(masterGain);
+        } catch (reverbErr) {
+            console.warn("Concrete room reverb failed, bypassing reverb send:", reverbErr);
+        }
+
+    // ==========================================
+    // LAYER A: 3-Phase Mains Hum (60 Hz & Harmonics)
+    // ==========================================
+    // Sawtooth at 60Hz produces rich odd and even harmonics
+    const humOsc60 = audioCtx.createOscillator();
+    humOsc60.type = 'sawtooth';
+    humOsc60.frequency.setValueAtTime(60, audioCtx.currentTime);
+
+    // Sine at 120Hz (second harmonic)
+    const humOsc120 = audioCtx.createOscillator();
+    humOsc120.type = 'sine';
+    humOsc120.frequency.setValueAtTime(120, audioCtx.currentTime);
+
+    // Sine at 180Hz (third harmonic)
+    const humOsc180 = audioCtx.createOscillator();
+    humOsc180.type = 'sine';
+    humOsc180.frequency.setValueAtTime(180, audioCtx.currentTime);
+
+    // Individual gains for blend
+    const gain60 = audioCtx.createGain();
+    gain60.gain.setValueAtTime(0.12, audioCtx.currentTime);
+
+    const gain120 = audioCtx.createGain();
+    gain120.gain.setValueAtTime(0.06, audioCtx.currentTime);
+
+    const gain180 = audioCtx.createGain();
+    gain180.gain.setValueAtTime(0.03, audioCtx.currentTime);
+
+    // Filter to roll off the high buzz and keep the deep growl
+    const humFilter = audioCtx.createBiquadFilter();
+    humFilter.type = 'lowpass';
+    humFilter.frequency.setValueAtTime(110, audioCtx.currentTime);
+    humFilter.Q.setValueAtTime(1.0, audioCtx.currentTime);
+
+    // Connect hum
+    humOsc60.connect(gain60);
+    humOsc120.connect(gain120);
+    humOsc180.connect(gain180);
+
+    gain60.connect(humFilter);
+    gain120.connect(humFilter);
+    gain180.connect(humFilter);
+
+    // Spatial Position: FRONT & CENTER (0, 0, -1) - right in front where the screen sits
+    const humPanner = createPanner(audioCtx, 0, 0, -1);
+    if (humPanner) {
+        humFilter.connect(humPanner);
+        humPanner.connect(masterGain);
+        humPanner.connect(reverbSend);
+    } else {
+        humFilter.connect(masterGain);
+        humFilter.connect(reverbSend);
+    }
+
+    audioSources.push(humOsc60, humOsc120, humOsc180);
+
+    // ==========================================
+    // LAYER B: Rotating Antenna Rumble (47 Hz + 10s Panner Animation)
+    // ==========================================
+    const rumbleOsc = audioCtx.createOscillator();
+    rumbleOsc.type = 'sawtooth'; // Sawtooth provides rich harmonics for mid-range audibility
+    rumbleOsc.frequency.setValueAtTime(47, audioCtx.currentTime); // Set to 47Hz (prime) to prevent acoustic beating with the 60Hz mains hum
+    const rumbleGain = audioCtx.createGain();
+    rumbleGain.gain.setValueAtTime(0.07, audioCtx.currentTime); // Adjusted to 0.07 to balance overhead rumble
+
+    // Lowpass filter for the rumble to retain heavy low-end while preserving audible mid-bass harmonics
+    const rumbleFilter = audioCtx.createBiquadFilter();
+    rumbleFilter.type = 'lowpass';
+    rumbleFilter.frequency.setValueAtTime(150, audioCtx.currentTime);
+
+    // Spatial Position: ROTATING OVERHEAD ON CEILING
+    // Coordinates animated dynamically by startRadarSweep() frame loop
+    rumblePanner = createPanner(audioCtx, 0, 2.5, -1.5);
+    if (rumblePanner) {
+        rumblePanner.refDistance = 3.0; // Prevent distance attenuation for ceiling placement
+        rumbleOsc.connect(rumbleFilter);
+        rumbleFilter.connect(rumbleGain);
+        rumbleGain.connect(rumblePanner);
+        rumblePanner.connect(masterGain);
+        rumblePanner.connect(reverbSend); // Send panning rumble to concrete reverb
+    } else {
+        // Fallback if PannerNode not supported
+        rumbleOsc.connect(rumbleFilter);
+        rumbleFilter.connect(rumbleGain);
+        rumbleGain.connect(masterGain);
+        rumbleGain.connect(reverbSend);
+    }
+
+    audioSources.push(rumbleOsc);
+
+    // ==========================================
+    // LAYER C: Ventilation Fans & AC (Muffled Noise + Prime LFOs)
+    // ==========================================
+    // Generate a 2-second white noise buffer
+    const bufferSize = 2 * audioCtx.sampleRate;
+    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const noiseData = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        noiseData[i] = Math.random() * 2 - 1;
+    }
+
+    // --- Fan 1: Cabinet cooling fan (Bandpass at 300Hz, Q=1.5) ---
+    const fanNoise = audioCtx.createBufferSource();
+    fanNoise.buffer = noiseBuffer;
+    fanNoise.loop = true;
+
+    const fanFilter = audioCtx.createBiquadFilter();
+    fanFilter.type = 'bandpass';
+    fanFilter.frequency.setValueAtTime(300, audioCtx.currentTime);
+    fanFilter.Q.setValueAtTime(1.5, audioCtx.currentTime);
+
+    const fanGain = audioCtx.createGain();
+    fanGain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+
+    // Modulate Fan volume: LFO period ~17.2s (0.058 Hz)
+    const fanLfo = audioCtx.createOscillator();
+    fanLfo.type = 'sine';
+    fanLfo.frequency.setValueAtTime(0.058, audioCtx.currentTime);
+
+    const fanLfoGain = audioCtx.createGain();
+    fanLfoGain.gain.setValueAtTime(0.03, audioCtx.currentTime); // Gain varies ±0.03
+
+    fanLfo.connect(fanLfoGain);
+    fanLfoGain.connect(fanGain.gain);
+    fanLfo.start();
+
+    fanNoise.connect(fanFilter);
+    fanFilter.connect(fanGain);
+
+    // Spatial Position: LOW LEFT SIDE OF THE CABINET (-0.5, -0.5, -1)
+    const fanPanner = createPanner(audioCtx, -0.5, -0.5, -1);
+    if (fanPanner) {
+        fanGain.connect(fanPanner);
+        fanPanner.connect(masterGain);
+        fanPanner.connect(reverbSend);
+    } else {
+        fanGain.connect(masterGain);
+        fanGain.connect(reverbSend);
+    }
+
+    audioSources.push(fanNoise, fanLfo);
+
+    // --- Fan 2: Room air conditioning (Lowpass at 420Hz) ---
+    const acNoise = audioCtx.createBufferSource();
+    acNoise.buffer = noiseBuffer;
+    acNoise.loop = true;
+
+    const acFilter = audioCtx.createBiquadFilter();
+    acFilter.type = 'lowpass';
+    acFilter.frequency.setValueAtTime(420, audioCtx.currentTime);
+
+    const acGain = audioCtx.createGain();
+    acGain.gain.setValueAtTime(0.09, audioCtx.currentTime);
+
+    // Modulate AC volume: LFO period ~23.3s (0.043 Hz)
+    const acLfo = audioCtx.createOscillator();
+    acLfo.type = 'sine';
+    acLfo.frequency.setValueAtTime(0.043, audioCtx.currentTime);
+
+    const acLfoGain = audioCtx.createGain();
+    acLfoGain.gain.setValueAtTime(0.04, audioCtx.currentTime); // Gain varies ±0.04
+
+    acLfo.connect(acLfoGain);
+    acLfoGain.connect(acGain.gain);
+    acLfo.start();
+
+    acNoise.connect(acFilter);
+    acFilter.connect(acGain);
+
+    // Spatial Position: HIGH TO OUR REAR & RIGHT (0.8, 1.2, 1.5)
+    const acPanner = createPanner(audioCtx, 0.8, 1.2, 1.5);
+    if (acPanner) {
+        acGain.connect(acPanner);
+        acPanner.connect(masterGain);
+        acPanner.connect(reverbSend);
+    } else {
+        acGain.connect(masterGain);
+        acGain.connect(reverbSend);
+    }
+
+    audioSources.push(acNoise, acLfo);
+
+    // ==========================================
+    // LAYER D: CRT Flyback Transformer Squeal (15,625 Hz)
+    // ==========================================
+    const flybackOsc = audioCtx.createOscillator();
+    flybackOsc.type = 'sine';
+    flybackOsc.frequency.setValueAtTime(15625, audioCtx.currentTime); // Horizontal deflection line frequency
+
+    const flybackGain = audioCtx.createGain();
+    flybackGain.gain.setValueAtTime(0.04, audioCtx.currentTime); // Returned to 0.04 as requested
+
+    flybackOsc.connect(flybackGain);
+    
+    // Spatial Position: FRONT & CENTER (0, 0, -1) - direct line squeal from screen
+    const flybackPanner = createPanner(audioCtx, 0, 0, -1);
+    if (flybackPanner) {
+        flybackGain.connect(flybackPanner);
+        flybackPanner.connect(masterGain);
+    } else {
+        flybackGain.connect(masterGain);
+    }
+
+    audioSources.push(flybackOsc);
+
+    // ==========================================
+    // LAYER E: Magnetic Drum Memory Whir
+    // ==========================================
+    // A 520Hz whir representing the main high-speed mechanical spindle
+    const spindleOsc = audioCtx.createOscillator();
+    spindleOsc.type = 'sine';
+    spindleOsc.frequency.setValueAtTime(520, audioCtx.currentTime);
+
+    // Slow vibrato LFO to add mechanical imperfection/wobble to the spindle bearing
+    const spindleLfo = audioCtx.createOscillator();
+    spindleLfo.type = 'sine';
+    spindleLfo.frequency.setValueAtTime(1.4, audioCtx.currentTime); // 1.4 Hz wobble
+
+    const spindleLfoGain = audioCtx.createGain();
+    spindleLfoGain.gain.setValueAtTime(2.0, audioCtx.currentTime); // Vary by ±2Hz
+
+    spindleLfo.connect(spindleLfoGain);
+    spindleLfoGain.connect(spindleOsc.frequency);
+    spindleLfo.start();
+
+    const spindleGain = audioCtx.createGain();
+    spindleGain.gain.setValueAtTime(0.006, audioCtx.currentTime); // Adjusted to 0.006
+
+    spindleOsc.connect(spindleGain);
+
+    // Spatial Position: FRONT & CENTER (0, 0, -1) - inside the console mainframe
+    const spindlePanner = createPanner(audioCtx, 0, 0, -1);
+    if (spindlePanner) {
+        spindleGain.connect(spindlePanner);
+        spindlePanner.connect(masterGain);
+        spindlePanner.connect(reverbSend);
+    } else {
+        spindleGain.connect(masterGain);
+        spindleGain.connect(reverbSend);
+    }
+
+    audioSources.push(spindleOsc, spindleLfo);
+
+    // ==========================================
+    // LAYER F: Ventilation Duct Wind Howl
+    // ==========================================
+    // Generates a hollow resonance by filtering white noise with a high Q bandpass filter
+    const ductNoise = audioCtx.createBufferSource();
+    ductNoise.buffer = noiseBuffer;
+    ductNoise.loop = true;
+
+    const ductFilter = audioCtx.createBiquadFilter();
+    ductFilter.type = 'bandpass';
+    ductFilter.frequency.setValueAtTime(130, audioCtx.currentTime);
+    ductFilter.Q.setValueAtTime(18.0, audioCtx.currentTime); // High resonance for hollow howling sound
+
+    // Modulate duct frequency to simulate wind gusts: LFO period ~29.4s (0.034 Hz)
+    const ductLfo = audioCtx.createOscillator();
+    ductLfo.type = 'sine';
+    ductLfo.frequency.setValueAtTime(0.034, audioCtx.currentTime);
+
+    const ductLfoGain = audioCtx.createGain();
+    ductLfoGain.gain.setValueAtTime(20.0, audioCtx.currentTime); // Sweep between 110Hz and 150Hz
+
+    ductLfo.connect(ductLfoGain);
+    ductLfoGain.connect(ductFilter.frequency);
+    ductLfo.start();
+
+    const ductGain = audioCtx.createGain();
+    ductGain.gain.setValueAtTime(0.02, audioCtx.currentTime); // Very quiet background presence
+
+    ductNoise.connect(ductFilter);
+    ductFilter.connect(ductGain);
+
+    // Spatial Position: HIGH REAR RIGHT - same location as AC vent duct (0.8, 1.2, 1.5)
+    const ductPanner = createPanner(audioCtx, 0.8, 1.2, 1.5);
+    if (ductPanner) {
+        ductGain.connect(ductPanner);
+        ductPanner.connect(masterGain);
+        ductPanner.connect(reverbSend);
+    } else {
+        ductGain.connect(masterGain);
+        ductGain.connect(reverbSend);
+    }
+
+    audioSources.push(ductNoise, ductLfo);
+
+    // ==========================================
+    // LAYER G: Fluorescent Light Ballast Hum
+    // ==========================================
+    // Buzzy 120Hz ballast rattle
+    const ballastOsc = audioCtx.createOscillator();
+    ballastOsc.type = 'sawtooth';
+    ballastOsc.frequency.setValueAtTime(120, audioCtx.currentTime); // 120Hz double-rectification hum
+
+    const ballastFilter = audioCtx.createBiquadFilter();
+    ballastFilter.type = 'bandpass';
+    ballastFilter.frequency.setValueAtTime(120, audioCtx.currentTime);
+    ballastFilter.Q.setValueAtTime(2.0, audioCtx.currentTime);
+
+    const ballastGain = audioCtx.createGain();
+    ballastGain.gain.setValueAtTime(0.015, audioCtx.currentTime); // Adjusted to 0.015
+
+    ballastOsc.connect(ballastFilter);
+    ballastFilter.connect(ballastGain);
+
+    // Spatial Position: HIGH OVERHEAD LEFT REAR (-0.8, 2.0, 0.5) - ceiling ballast behind the screen angle to prevent direct screen glare
+    const ballastPanner = createPanner(audioCtx, -0.8, 2.0, 0.5);
+    if (ballastPanner) {
+        ballastGain.connect(ballastPanner);
+        ballastPanner.connect(masterGain);
+        ballastPanner.connect(reverbSend);
+    } else {
+        ballastGain.connect(masterGain);
+        ballastGain.connect(reverbSend);
+    }
+
+    audioSources.push(ballastOsc);
+
+    // Start all generators
+    humOsc60.start();
+    humOsc120.start();
+    humOsc180.start();
+    rumbleOsc.start();
+    flybackOsc.start();
+    spindleOsc.start();
+    ductNoise.start();
+    ballastOsc.start();
+    fanNoise.start();
+    acNoise.start();
+    } catch (err) {
+        console.error("Failed to initialize audio spatializer:", err);
+    }
+}
+
+function toggleAudio() {
+    const soundBtn = document.getElementById('sound-btn');
+    if (!soundBtn) return;
+
+    if (!audioCtx) {
+        initAudioEngine();
+    }
+
+    if (!audioCtx) return; // Web Audio not supported
+
+    const wavesEl = document.getElementById('sound-waves');
+    const muteEl = document.getElementById('sound-mute');
+
+    if (audioEnabled) {
+        // Suspend context
+        audioCtx.suspend().then(() => {
+            audioEnabled = false;
+            if (wavesEl) wavesEl.style.display = 'none';
+            if (muteEl) muteEl.style.display = 'block';
+            soundBtn.title = 'Enable ambient audio';
+        });
+    } else {
+        // Resume context (browsers require user gesture to start AudioContext)
+        audioCtx.resume().then(() => {
+            audioEnabled = true;
+            if (wavesEl) wavesEl.style.display = 'block';
+            if (muteEl) muteEl.style.display = 'none';
+            soundBtn.title = 'Mute ambient audio';
+        });
+    }
+}
+
 function initParallaxGlare() {
     const glareReflection = document.getElementById('glass-glare-reflection');
     if (!glareReflection) return;
@@ -698,6 +1144,11 @@ function initControls() {
     // We use the capturing phase (true) to intercept the event before Leaflet blocks propagation.
     window.addEventListener('contextmenu', (e) => e.preventDefault(), true);
 
+    // Audio soundtrack toggle button
+    const soundBtn = document.getElementById('sound-btn');
+    if (soundBtn) {
+        soundBtn.addEventListener('click', toggleAudio);
+    }
 
     // Flight Trails Toggle Button
     const trailBtn = document.getElementById('trail-toggle');
@@ -1194,6 +1645,16 @@ function startRadarSweep() {
         // Update sweep rotation visually
         if (sweepEl) {
             sweepEl.style.transform = `translateZ(0) rotate(${nextAngle}deg)`;
+        }
+
+        // Synchronize 3D rotating antenna rumble position on the ceiling
+        if (audioCtx && audioEnabled && rumblePanner) {
+            const rad = (nextAngle % 360) * Math.PI / 180;
+            // Rotating circle of radius 1.5m at a height of 2.5m on the ceiling
+            const x = Math.sin(rad) * 1.5;
+            const z = -Math.cos(rad) * 1.5;
+            rumblePanner.positionX.setValueAtTime(x, audioCtx.currentTime);
+            rumblePanner.positionZ.setValueAtTime(z, audioCtx.currentTime);
         }
 
         // Check which aircraft are passed over by the radar beam during this frame (using modulo angles)

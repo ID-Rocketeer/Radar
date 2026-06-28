@@ -1809,6 +1809,31 @@ body {
     box-shadow: 0 0 8px var(--phosphor-glow);
 }
 
+.sound-btn {
+    position: absolute;
+    top: 5px;
+    right: 32px;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--phosphor-green);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.sound-btn:hover {
+    background: rgba(0, 255, 85, 0.15);
+    border-color: var(--panel-border-active);
+    box-shadow: 0 0 8px var(--phosphor-glow);
+}
+
 .modal-overlay {
     position: fixed;
     top: 0;

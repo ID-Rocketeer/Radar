@@ -87,3 +87,10 @@ If parameters are missing, invalid, or omitted, the application falls back to:
 
 * **Low Altitude Filter**:
   Toggling the **LOW** button restricts the radar display to traffic below the Transition Altitude of 18,000 feet (FL180). This filters out high-altitude commercial cruising overflights, isolating local regional traffic, arrivals, departures, and general aviation.
+
+* **Procedural Room Soundscape**:
+  Toggling the speaker button (`🔇` / `🔊`) in the top-right header activates an analog, Cold War bunker control room ambient audio environment. The sounds are synthesized entirely in real-time in the browser using the Web Audio API (0-byte network payload, running on a background audio thread):
+  - **Mains Hum**: A 60 Hz 3-phase electrical hum centered directly on the console screen.
+  - **Antenna Sweep Rumble**: A panning 47 Hz sub-harmonic dish rotation that tracks the sweep line across the ceiling overhead (adjusted to avoid phase beating with the mains hum).
+  - **Cabinet Cooling Fans & AC**: Subtle room air flow modulated by slow prime-frequency LFOs to create an organic, non-repeating breeze.
+  - **Coil Whine & CRT deflection**: Simulated electromagnetic hardware signatures panned around the room in 3D audio space, responding automatically to multi-channel surround sound configurations.

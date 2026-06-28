@@ -33,7 +33,7 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="index.css?v=10.89">
+    <link rel="stylesheet" href="index.css?v=10.90">
 </head>
 <body>
     <div class="sidebar-base-plate">
@@ -70,6 +70,13 @@
                             <span class="status-indicator"></span>
                             <span class="status-text">SYS_STATUS: STANDBY</span>
                         </div>
+                        <button class="sound-btn" id="sound-btn" title="Toggle audio system">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 13px; height: 13px; display: block;">
+                                <path id="sound-speaker" d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                                <path id="sound-waves" d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" style="display: none;"></path>
+                                <path id="sound-mute" d="M23 9l-6 6 M17 9l6 6"></path>
+                            </svg>
+                        </button>
                         <button class="help-btn" id="help-btn" title="Operations Manual">?</button>
                     </div>
 
@@ -265,6 +272,7 @@
                             <li><strong>TRAILS:</strong> Toggles historical breadcrumb tracking on the scope.</li>
                             <li><strong>LOW:</strong> Filters out all high-altitude cruising traffic above the Transition Altitude of 18,000 feet (FL180), displaying only local air traffic.</li>
                             <li><strong>FULLSCREEN:</strong> Expands the radar display area to fill the screen bounds.</li>
+                            <li><strong>SOUND TOGGLE (🔇/🔊):</strong> Located in the sidebar header. Toggles a simulated 3D room soundscape generating ambient mains hum, cooling fans, computer memory whir, air conditioning, and overhead ballast rattle echoing inside a concrete bunker room.</li>
                         </ul>
                     </li>
                     <li><strong>TARGET FILTERS:</strong> Restricts radar sweeps to specific target categories: <code>ALL</code> traffic, <code>MILITARY ONLY</code>, <code>COMMERCIAL</code> airliners, or <code>GENERAL & OTHER</code> aviation.</li>
@@ -291,6 +299,6 @@
     <!-- Leaflet JS -->
     <script data-cfasync="false" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <!-- Application Logic -->
-    <script data-cfasync="false" src="app.js?v=10.88"></script>
+    <script data-cfasync="false" src="app.js?v=10.90"></script>
 </body>
 </html>
