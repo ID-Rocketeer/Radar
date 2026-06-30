@@ -2820,6 +2820,40 @@ body {
     border-color: rgba(255, 51, 51, 0.45);
     background-color: #0d0202; /* Dark red tint background */
 }
+.aircraft-marker.special-b .aircraft-label {
+    color: #d4ff00;
+    border-color: rgba(212, 255, 0, 0.45);
+    background-color: #0a0c00; /* Dark yellow tint background */
+}
+
+/* === Class B Targets yellow highlight === */
+.aircraft-marker.special-b .aircraft-icon path {
+    fill: #d4ff00 !important;
+}
+.aircraft-marker.special-b.selected::before {
+    border-color: #d4ff00 !important;
+}
+.radar-trail.special-b {
+    stroke: #d4ff00 !important;
+    opacity: 0.65 !important;
+}
+.aircraft-marker.special-b:not(.swept-flash) {
+    opacity: 0.65 !important;
+}
+.target-item.special-b {
+    color: #d4ff00 !important;
+}
+.target-item.special-b:hover {
+    color: #eaff55 !important;
+}
+.target-item.special-b.selected {
+    border-left-color: #d4ff00 !important;
+    background-color: rgba(212, 255, 0, 0.15) !important;
+}
+.tel-val.special-b {
+    color: #d4ff00 !important;
+    text-shadow: 0 0 4px rgba(212, 255, 0, 0.45) !important;
+}
 
 /* Expanded touch target enabled dynamically on touch devices */
 .touch-enabled .screw-touch-target {

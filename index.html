@@ -33,7 +33,7 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="index.css?v=10.95">
+    <link rel="stylesheet" href="index.css?v=11.00">
 </head>
 <body>
     <div class="sidebar-base-plate">
@@ -110,8 +110,11 @@
                             </button>
                         </div>
                         <div class="panel-controls location-controls" style="margin-top: 6px;">
-                            <button class="retro-btn" id="location-select-btn" style="flex: 1; border-color: rgba(0, 255, 85, 0.35);" title="Calibrate home station coordinates and sweep range">
+                            <button class="retro-btn" id="location-select-btn" style="flex: 3; border-color: rgba(0, 255, 85, 0.35);" title="Calibrate home station coordinates and sweep range">
                                 SELECT LOCATION
+                            </button>
+                            <button class="retro-btn" id="class-b-toggle" style="flex: 1;" title="Toggle visibility of Class B targets (gliders, balloons, UAVs)">
+                                CLASS B
                             </button>
                             <button class="retro-btn" id="location-locate-btn" style="display: none; flex: 1; color: #d4ff00; border-color: #d4ff00; font-weight: bold;" title="Auto-detect current coordinates using GPS or IP">
                                 LOCATE ME
@@ -272,6 +275,7 @@
                             <li><strong>TRAILS:</strong> Toggles historical breadcrumb tracking on the scope.</li>
                             <li><strong>LOW:</strong> Filters out all high-altitude cruising traffic above the Transition Altitude of 18,000 feet (FL180), displaying only local air traffic.</li>
                             <li><strong>FULLSCREEN:</strong> Expands the radar display area to fill the screen bounds.</li>
+                            <li><strong>CLASS B:</strong> Toggles visibility of Class B targets (gliders, balloons, UAVs) highlighted on the scope in distinct yellow.</li>
                             <li><strong>SOUND TOGGLE (🔇/🔊):</strong> Located in the sidebar header. Toggles a simulated 3D room soundscape generating ambient mains hum, cooling fans, computer memory whir, air conditioning, and overhead ballast rattle echoing inside a concrete bunker room.</li>
                         </ul>
                     </li>
@@ -299,6 +303,6 @@
     <!-- Leaflet JS -->
     <script data-cfasync="false" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <!-- Application Logic -->
-    <script data-cfasync="false" src="app.js?v=10.95"></script>
+    <script data-cfasync="false" src="app.js?v=11.35"></script>
 </body>
 </html>

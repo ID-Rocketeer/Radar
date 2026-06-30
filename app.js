@@ -73,6 +73,7 @@ let lastHexClickTime = 0; // Click timestamp for gesture timeout
 let activeFilter = 'all'; // 'all', 'mil', 'commercial', 'ga'
 let trailsEnabled = true;
 let lowAltitudeFilterEnabled = false; // Filter modifier for low-altitude targets
+let classBEnabled = false; // Filter modifier for Class B targets (gliders, balloons, UAVs)
 let maxTrailPoints = 15; // Dynamically scaled trail length limit
 let targetListDomMap = {}; // Maps hex -> DOM element for target list reconciliation
 let sweepEl = null; // Global reference to the sweep line DOM element
@@ -134,7 +135,19 @@ const AIRCRAFT_ICONS = {
     // Light general aviation/propeller airplane (wide straight wings)
     light: 'M12,2A1,1 0 0,0 11,3V8.5L1,9.5V11.5L11,10.5V19L7.5,21.5V22.5L12,22L16.5,22.5V21.5L13,19V10.5L23,11.5V9.5L13,8.5V3A1,1 0 0,0 12,2Z',
     // Helicopter top-down view (rotors & tail spinner)
-    helicopter: 'M12,6C13.7,6 14.8,7.5 14.8,10C14.8,12 13.5,14 12.8,16H11.2C10.5,14 9.2,12 9.2,10C9.2,7.5 10.3,6 12,6ZM2.7,3.3L20.7,21.3L21.3,20.7L3.3,2.7ZM20.7,2.7L2.7,20.7L3.3,21.3L21.3,3.3ZM12,9.8A1.2,1.2 0 1,1 12,12.2A1.2,1.2 0 1,1 12,9.8ZM11.6,16H12.4V22H11.6ZM9,19.7H15V20.3H9ZM9.7,19H10.3V23H9.7ZM10.3,21.2H11.6V21.8H10.3'
+    helicopter: 'M12,6C13.7,6 14.8,7.5 14.8,10C14.8,12 13.5,14 12.8,16H11.2C10.5,14 9.2,12 9.2,10C9.2,7.5 10.3,6 12,6ZM2.7,3.3L20.7,21.3L21.3,20.7L3.3,2.7ZM20.7,2.7L2.7,20.7L3.3,21.3L21.3,3.3ZM12,9.8A1.2,1.2 0 1,1 12,12.2A1.2,1.2 0 1,1 12,9.8ZM11.6,16H12.4V22H11.6ZM9,19.7H15V20.3H9ZM9.7,19H10.3V23H9.7ZM10.3,21.2H11.6V21.8H10.3',
+    // Class B Glider/Sailplane (very high-aspect long wings)
+    glider: 'M12,2L13,8L23,9L23,10L13,10L12,22L11,22L11,10L1,10L1,9L11,8Z',
+    // Class B Lighter-Than-Air (weather/hot-air balloon with gradual, continuous bottom taper)
+    balloon: 'M 12,2 C 7,2 5.5,4.5 5.5,8 C 5.5,11.5 8.5,14.5 10,17 L 11,18.5 L 13,18.5 L 14,17 C 15.5,14.5 18.5,11.5 18.5,8 C 18.5,4.5 17,2 12,2 Z M 10,20.5 L 14,20.5 L 14,22.5 L 10,22.5 Z',
+    // Class B Parachutist (dome canopy, thick outer V-shrouds, and distinct jumper blip)
+    parachute: 'M 5,9 C 5,4 8,2 12,2 C 16,2 19,4 19,9 Z M 5,8.5 L 7,8.5 L 12.5,17 L 10.5,17 Z M 19,8.5 L 17,8.5 L 11.5,17 L 13.5,17 Z M 10,18 L 14,18 L 14,22 L 10,22 Z',
+    // Class B Ultralight (delta-wing with suspended trike frame pod)
+    ultralight: 'M12,2L23,12L14,11L13,20L11,20L10,11L1,12Z',
+    // Class B UAV/Drone (bold quadcopter silhouette with smooth curved rotors)
+    drone: 'M12,9L6,3C4.5,1.5 1.5,4.5 3,6L9,12L3,18C1.5,19.5 4.5,22.5 6,21L12,15L18,21C19.5,22.5 22.5,19.5 21,18L15,12L21,6C22.5,4.5 19.5,1.5 18,3L12,9Z',
+    // Class B Space Vehicle (upright Mercury capsule pointing straight up at 0 degrees)
+    space_vehicle: 'M6,18C6,19.5 18,19.5 18,18L14,8L13,8L13,2L11,2L11,8L10,8Z'
 };
 
 // === CodeRed Easter Egg: WWII Warbird Identification ===
@@ -182,6 +195,23 @@ function isWarbird(ac) {
 
 function isActiveWarbird(ac) {
     return warbirdModeActive && isWarbird(ac);
+}
+
+function isClassB(ac) {
+    if (!ac) return false;
+    const cat = (ac.category || '').toUpperCase();
+    return cat.startsWith('B');
+}
+
+function getSpecialBSubtype(category) {
+    const cat = (category || '').toUpperCase();
+    if (cat === 'B1') return 'GLIDER';
+    if (cat === 'B2') return 'LIGHTER-THAN-AIR';
+    if (cat === 'B3') return 'PARACHUTIST';
+    if (cat === 'B4') return 'ULTRALIGHT';
+    if (cat === 'B6') return 'UAV/DRONE';
+    if (cat === 'B7') return 'SPACE VEHICLE';
+    return 'CLASS B';
 }
 
 function getWarbirdSubtype(ac) {
@@ -281,6 +311,14 @@ function getAircraftIconType(rawAc) {
     const desc = (rawAc.desc || '').toUpperCase();
     const dbFlagsVal = rawAc.dbFlags !== undefined ? rawAc.dbFlags : rawAc.dbflags;
     const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (dbFlagsVal & 1) === 1);
+
+    // Class B Iconography (Applies universally)
+    if (category === 'B1') return 'glider';
+    if (category === 'B2') return 'balloon';
+    if (category === 'B3') return 'parachute';
+    if (category === 'B4') return 'ultralight';
+    if (category === 'B6') return 'drone';
+    if (category === 'B7') return 'space_vehicle';
 
     // 1. Helicopters (Category C1/A7, description contains helicopter manufacturers/keywords, common helicopter names, or helicopter type codes)
     const isHelicopter = (
@@ -1298,6 +1336,23 @@ function initControls() {
         });
     }
 
+    // Class B Toggle Button
+    const classBBtn = document.getElementById('class-b-toggle');
+    if (classBBtn) {
+        classBBtn.addEventListener('click', () => {
+            classBEnabled = !classBEnabled;
+            classBBtn.classList.toggle('active', classBEnabled);
+
+            // Update visibility of all current markers
+            Object.keys(activeAircraft).forEach(hex => {
+                updateMarkerVisibility(hex);
+            });
+
+            // Refresh target list sidebar
+            updateTargetList();
+        });
+    }
+
     function updateFullscreenUI() {
         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
         if (fullscreenBtn) {
@@ -1993,6 +2048,10 @@ function processAPIResponse(data) {
         const hex = rawAc.hex;
         if (!hex) return;
 
+        // Suppress Category C (surface vehicles, beacons, obstacles)
+        const rawCat = (rawAc.category || '').toUpperCase();
+        if (rawCat.startsWith('C')) return;
+
         // Escape outside data immediately at the ingestion level and normalize casing
         const cleanHex = escapeHtml(hex).toLowerCase();
         freshHexes.add(cleanHex);
@@ -2147,7 +2206,7 @@ function isAircraftInViewport(ac) {
 
 // Heuristic to determine if a civilian flight is commercial air traffic
 function isCommercialAircraft(ac) {
-    if (ac.mil) return false;
+    if (ac.mil || isClassB(ac)) return false;
     
     // 1. Check ICAO airline callsign format (3 uppercase letters followed by a digit)
     const isAirline = /^[A-Z]{3}\d/.test(ac.callsign);
@@ -2177,13 +2236,19 @@ function updateTargetList() {
         return true; // 'all'
     });
 
-    // Sort list: Warbirds first (when CodeRed active), then Military, then closest distance
+    // Sort list: Warbirds first (when CodeRed active), then Class B (when active), then Military, then closest distance
     filteredAc.sort((a, b) => {
         if (warbirdModeActive) {
             const aWb = isWarbird(a);
             const bWb = isWarbird(b);
             if (aWb && !bWb) return -1;
             if (!aWb && bWb) return 1;
+        }
+        if (classBEnabled) {
+            const aB = isClassB(a);
+            const bB = isClassB(b);
+            if (aB && !bB) return -1;
+            if (!aB && bB) return 1;
         }
         if (a.mil && !b.mil) return -1;
         if (!a.mil && b.mil) return 1;
@@ -2234,7 +2299,8 @@ function updateTargetList() {
         }
 
         // Apply updated classification classes
-        item.className = `target-item ${ac.mil ? 'mil' : ''} ${isActiveWarbird(ac) ? 'warbird' : ''} ${selectedHex === ac.hex ? 'selected' : ''}`;
+        const isB = classBEnabled && isClassB(ac);
+        item.className = `target-item ${ac.mil ? 'mil' : ''} ${isActiveWarbird(ac) ? 'warbird' : ''} ${isB ? 'special-b' : ''} ${selectedHex === ac.hex ? 'selected' : ''}`;
 
         // Build HTML content and replace only if changed to prevent browser paint loops
         const distVal = ac.dist;
@@ -2313,8 +2379,8 @@ function updateMarkerVisibility(hex) {
             const markerIcon = L.divIcon({
                 className: `aircraft-marker-container`,
                 html: `
-                    <div class="aircraft-marker ${ac.mil ? 'mil' : ''} ${isActiveWarbird(ac) ? 'warbird' : ''}" id="marker-${safeHex}">
-                        <svg class="aircraft-icon" viewBox="0 0 24 24" style="transform: rotate(${ac.track}deg);">
+                    <div class="aircraft-marker ${ac.mil ? 'mil' : ''} ${isActiveWarbird(ac) ? 'warbird' : ''} ${classBEnabled && isClassB(ac) ? 'special-b' : ''}" id="marker-${safeHex}">
+                        <svg class="aircraft-icon" viewBox="0 0 24 24" style="transform: rotate(${(ac.iconType === 'balloon' || ac.iconType === 'parachute') ? 0 : ac.track}deg);">
                             <path d="${iconPath}" />
                         </svg>
                         <div class="aircraft-label">${ac.callsign}</div>
@@ -2336,13 +2402,14 @@ function updateMarkerVisibility(hex) {
             if (markerDom) {
                 const iconSvg = markerDom.querySelector('.aircraft-icon');
                 if (iconSvg) {
-                    iconSvg.style.transform = `rotate(${ac.track}deg)`;
+                    iconSvg.style.transform = `rotate(${(ac.iconType === 'balloon' || ac.iconType === 'parachute') ? 0 : ac.track}deg)`;
                 }
                 const pathEl = markerDom.querySelector('.aircraft-icon path');
                 if (pathEl) {
                     pathEl.setAttribute('d', AIRCRAFT_ICONS[ac.iconType || 'jet']);
                 }
                 markerDom.classList.toggle('warbird', isActiveWarbird(ac));
+                markerDom.classList.toggle('special-b', classBEnabled && isClassB(ac));
             }
         }
 
@@ -2350,7 +2417,7 @@ function updateMarkerVisibility(hex) {
         if (trailsEnabled) {
             if (!ac.trail) {
                 ac.trail = L.polyline([[ac.lat, ac.lon]], {
-                    className: `radar-trail ${ac.mil ? 'mil' : ''} ${isActiveWarbird(ac) ? 'warbird' : ''}`,
+                    className: `radar-trail ${ac.mil ? 'mil' : ''} ${isActiveWarbird(ac) ? 'warbird' : ''} ${classBEnabled && isClassB(ac) ? 'special-b' : ''}`,
                     interactive: false
                 }).addTo(map);
             } else {
@@ -2493,10 +2560,12 @@ function renderTelemetryDetails(hex) {
         </div>
         <div class="tel-row">
             <span class="tel-label">CLASSIFICATION:</span>
-            <span class="tel-val ${ac.mil ? 'alert' : (isActiveWarbird(ac) ? 'warbird' : '')}">
-                ${ac.mil ? `MILITARY SECURE (${(ac.iconType || 'jet').toUpperCase()})` : 
+            <span class="tel-val ${ac.mil ? 'alert' : (isActiveWarbird(ac) ? 'warbird' : (classBEnabled && isClassB(ac) ? 'special-b' : ''))}">
+                ${ac.mil ? `MILITARY SECURE (${(ac.iconType || 'jet').toUpperCase().replace('_', ' ')})` : 
                   (isActiveWarbird(ac) ? `WARBIRD (${getWarbirdSubtype(ac)})` : 
-                  `CIVILIAN AIR TRAFFIC (${(ac.iconType || 'jet').toUpperCase()})`)}
+                  (isClassB(ac) ? 
+                    (classBEnabled ? `CLASS B (${getSpecialBSubtype(ac.category)})` : `CIVILIAN AIR TRAFFIC (${getSpecialBSubtype(ac.category)})`) : 
+                    `CIVILIAN AIR TRAFFIC (${(ac.iconType || 'jet').toUpperCase().replace('_', ' ')})`))}
             </span>
         </div>
     `;
@@ -2743,6 +2812,8 @@ function enterSelectionMode() {
 
     // Toggle button visibilities in sidebar
     document.getElementById('location-select-btn').style.display = 'none';
+    const classBBtn = document.getElementById('class-b-toggle');
+    if (classBBtn) classBBtn.style.display = 'none';
     document.getElementById('location-locate-btn').style.display = 'inline-block';
     document.getElementById('location-confirm-btn').style.display = 'inline-block';
     document.getElementById('location-cancel-btn').style.display = 'inline-block';
@@ -2854,6 +2925,8 @@ function exitSelectionMode(confirmChanges) {
 
     // Toggle button visibility back to default
     document.getElementById('location-select-btn').style.display = 'inline-block';
+    const classBBtn = document.getElementById('class-b-toggle');
+    if (classBBtn) classBBtn.style.display = 'inline-block';
     document.getElementById('location-locate-btn').style.display = 'none';
     document.getElementById('location-confirm-btn').style.display = 'none';
     document.getElementById('location-cancel-btn').style.display = 'none';
