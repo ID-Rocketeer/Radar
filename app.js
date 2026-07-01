@@ -147,7 +147,13 @@ const AIRCRAFT_ICONS = {
     // Class B UAV/Drone (bold quadcopter silhouette with smooth curved rotors)
     drone: 'M12,9L6,3C4.5,1.5 1.5,4.5 3,6L9,12L3,18C1.5,19.5 4.5,22.5 6,21L12,15L18,21C19.5,22.5 22.5,19.5 21,18L15,12L21,6C22.5,4.5 19.5,1.5 18,3L12,9Z',
     // Class B Space Vehicle (upright Mercury capsule pointing straight up at 0 degrees)
-    space_vehicle: 'M6,18C6,19.5 18,19.5 18,18L14,8L13,8L13,2L11,2L11,8L10,8Z'
+    space_vehicle: 'M6,18C6,19.5 18,19.5 18,18L14,8L13,8L13,2L11,2L11,8L10,8Z',
+    // Active Warbird WWII Bomber (four-engine heavy bomber with engine nacelles)
+    warbird_bomber: 'M12,2 C13,2 13.5,4 13.5,7 L14,7 L14,6 L15,6 L15,7 L17,7.5 L17,6.5 L18,6.5 L18,9 L23.5,9.5 L23.5,12.5 L13.5,14.5 L13.5,20 L17,21.5 L17,22.5 L12,22 L7,22.5 L7,21.5 L10.5,20 L10.5,14.5 L0.5,12.5 L0.5,9.5 L6,9 L6,6.5 L7,6.5 L7,7.5 L9,7 L9,6 L10,6 L10,7 L10.5,7 C10.5,4 11,2 12,2 Z',
+    // Active Warbird WWII Fighter/Attack/Pursuit (classic piston fighter with elliptical Spitfire-style wings)
+    warbird_fighter: 'M12,4 C12.5,4 13,5.5 13,8.5 L20.5,10.5 L20.5,12.5 L13,12.5 L13,17 L15,18.5 L15,19.5 L12,19 L9,19.5 L9,18.5 L11,17 L11,12.5 L3.5,12.5 L3.5,10.5 L11,8.5 C11,5.5 11.5,4 12,4 Z',
+    // Active Warbird WWII Transport (classic twin-engine propeller transport/C-47 Goony Bird)
+    warbird_transport: 'M12,2 C12.5,2 13,4 13,9 L14.5,9 L14.5,8 L15.5,8 L15.5,10 L23.5,12.5 L23.5,14 L13,14 L13,20 L16.5,21.5 L16.5,22.5 L12,22 L7.5,22.5 L7.5,21.5 L11,20 L11,14 L0.5,14 L0.5,12.5 L8.5,10 L8.5,8 L9.5,8 L9.5,9 L11,9 C11,4 11.5,2 12,2 Z'
 };
 
 // === CodeRed Easter Egg: WWII Warbird Identification ===
@@ -280,10 +286,20 @@ function refreshWarbirdStyling() {
         const isWb = isActiveWarbird(ac);
         const safeHex = sanitizeId(hex);
 
+        // Recalculate icon type in case warbird status toggled the shape
+        const newIconType = getAircraftIconType(ac);
+        if (newIconType !== ac.iconType) {
+            ac.iconType = newIconType;
+        }
+
         // Update marker DOM
         const markerDom = document.getElementById(`marker-${safeHex}`);
         if (markerDom) {
             markerDom.classList.toggle('warbird', isWb);
+            const pathEl = markerDom.querySelector('.aircraft-icon path');
+            if (pathEl) {
+                pathEl.setAttribute('d', AIRCRAFT_ICONS[ac.iconType || 'jet']);
+            }
         }
 
         // Update trail SVG element
@@ -307,10 +323,25 @@ function refreshWarbirdStyling() {
 // Classifies the aircraft raw data into one of our custom icon categories
 function getAircraftIconType(rawAc) {
     const category = (rawAc.category || '').toUpperCase();
-    const typeCode = (rawAc.t || '').toUpperCase();
+    const typeCode = (rawAc.t || rawAc.type || '').toUpperCase();
     const desc = (rawAc.desc || '').toUpperCase();
     const dbFlagsVal = rawAc.dbFlags !== undefined ? rawAc.dbFlags : rawAc.dbflags;
-    const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (dbFlagsVal & 1) === 1);
+    const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (dbFlagsVal !== undefined && (dbFlagsVal & 1) === 1));
+
+    // WWII Warbirds custom icons when warbirdModeActive is enabled
+    if (warbirdModeActive && WARBIRD_TYPE_CODES.has(typeCode)) {
+        const tempAc = { type: typeCode };
+        const subtype = getWarbirdSubtype(tempAc);
+        if (['BOMBER', 'TORPEDO BOMBER', 'PATROL BOMBER', 'SCOUT BOMBER'].includes(subtype)) {
+            return 'warbird_bomber';
+        }
+        if (['FIGHTER', 'ATTACK', 'PURSUIT', 'JET'].includes(subtype)) {
+            return 'warbird_fighter';
+        }
+        if (subtype === 'TRANSPORT') {
+            return 'warbird_transport';
+        }
+    }
 
     // Class B Iconography (Applies universally)
     if (category === 'B1') return 'glider';
@@ -2033,6 +2064,8 @@ function processAPIResponse(data) {
 
     const freshHexes = new Set();
     const aircraftList = data.ac || [];
+
+
 
     // Dynamically scale trail length limit based on current airspace density
     const apiCount = aircraftList.length;
