@@ -42,8 +42,8 @@ if (isNaN(HOME_LAT)) HOME_LAT = defaultLat;
 if (isNaN(HOME_LON)) HOME_LON = defaultLon;
 
 // Clamp latitude to Web Mercator limits and wrap longitude using modulo 360
-HOME_LAT = Math.max(-85.05112878, Math.min(85.05112878, HOME_LAT));
-HOME_LON = ((HOME_LON + 180) % 360 + 360) % 360 - 180;
+HOME_LAT = normalizeLat(HOME_LAT);
+HOME_LON = normalizeLon(HOME_LON);
 
 // Validate and cap range. The Airplanes.live API limits point queries to 250 NM.
 // We set a minimum query/ring range of 2 NM to maintain data density limits,
@@ -65,16 +65,16 @@ let map;
 let homeMarker; // Reference to center crosshair marker
 let sweepMarker; // Reference to rotating sweep center marker
 let rangeRings = [];
-let activeAircraft = {}; // Holds aircraft metadata and map instances
+var activeAircraft = {}; // Holds aircraft metadata and map instances
 let selectedHex = null;
-let trackedHex = null; // Currently tracked aircraft HEX address (Easter Egg)
-let hexClickCount = 0; // Click counter for gesture activation
-let lastHexClickTime = 0; // Click timestamp for gesture timeout
-let activeFilter = 'all'; // 'all', 'mil', 'commercial', 'ga'
-let trailsEnabled = true;
-let lowAltitudeFilterEnabled = false; // Filter modifier for low-altitude targets
-let classBEnabled = false; // Filter modifier for Class B targets (gliders, balloons, UAVs)
-let maxTrailPoints = 15; // Dynamically scaled trail length limit
+var trackedHex = null; // Currently tracked aircraft HEX address (Easter Egg)
+var hexClickCount = 0; // Click counter for gesture activation
+var lastHexClickTime = 0; // Click timestamp for gesture timeout
+var activeFilter = 'all'; // 'all', 'mil', 'commercial', 'ga'
+var trailsEnabled = true;
+var lowAltitudeFilterEnabled = false; // Filter modifier for low-altitude targets
+var classBEnabled = false; // Filter modifier for Class B targets (gliders, balloons, UAVs)
+var maxTrailPoints = 15; // Dynamically scaled trail length limit
 let targetListDomMap = {}; // Maps hex -> DOM element for target list reconciliation
 let sweepEl = null; // Global reference to the sweep line DOM element
 let sweepActive = true; // Flag to halt/resume sweep line rotation on connection errors
@@ -82,11 +82,11 @@ let pollIntervalId = null; // ID to track active polling interval
 let activePollController = null; // Controller to abort in-flight API requests
 
 // Audio system states
-let audioCtx = null;
-let masterGain = null;
-let audioEnabled = false;
-let rumblePanner = null; // Global reference to animate rotating 3D panner
-let audioSources = []; // Keeps track of active oscillators, buffer sources, and LFOs
+var audioCtx = null;
+var masterGain = null;
+var audioEnabled = false;
+var rumblePanner = null; // Global reference to animate rotating 3D panner
+var audioSources = []; // Keeps track of active oscillators, buffer sources, and LFOs
 
 // Location selection calibration states
 let isSelectionMode = false;
@@ -97,7 +97,16 @@ let isProgrammaticChange = false;
 let cachedDisplayedRange = RANGE_NM; // Cache to prevent layout thrashing from getBoundingClientRect()
 
 // Global bearing-based index (360 buckets of Sets, one for each degree)
-let bearingBuckets = Array.from({ length: 360 }, () => new Set());
+var bearingBuckets = Array.from({ length: 360 }, () => new Set());
+
+function normalizeLon(lon) {
+    let w = ((lon + 180) % 360 + 360) % 360 - 180;
+    return w === -180 ? 180 : w;
+}
+
+function normalizeLat(lat) {
+    return Math.max(-85.05112878, Math.min(85.05112878, lat));
+}
 
 function getBearingBucketIndex(bearing) {
     return Math.floor((bearing % 360 + 360) % 360);
@@ -192,7 +201,7 @@ const WARBIRD_TYPE_CODES = new Set([
     'YAK3', 'YAK9', 'YK11', 'IL2', 'LA5', 'LA7', 'LA9'
 ]);
 
-let warbirdModeActive = localStorage.getItem('codeRedActive') === 'true';
+var warbirdModeActive = localStorage.getItem('codeRedActive') === 'true';
 
 function isWarbird(ac) {
     if (!ac || !ac.type) return false;
@@ -1132,8 +1141,8 @@ async function autoDetectLocationAndInit() {
     if (!hasLat || !hasLon) {
         const coords = await getIPLocation();
         if (coords) {
-            HOME_LAT = Math.max(-85.05112878, Math.min(85.05112878, coords.lat));
-            HOME_LON = ((coords.lon + 180) % 360 + 360) % 360 - 180;
+            HOME_LAT = normalizeLat(coords.lat);
+            HOME_LON = normalizeLon(coords.lon);
             
             // Update URL silently to reflect IP location
             const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${Math.round(RANGE_NM)}`;
@@ -1934,12 +1943,12 @@ function triggerAircraftSweep(hex) {
             }
         }
         
-        // Update SVG icon rotation only if track changed
+        // Update SVG icon rotation only if track changed and not rotation locked
         if (trackChanged) {
             const markerDom = document.getElementById(`marker-${safeHex}`);
             const iconSvg = markerDom ? markerDom.querySelector('.aircraft-icon') : null;
             if (iconSvg) {
-                iconSvg.style.transform = `rotate(${ac.track}deg)`;
+                iconSvg.style.transform = `rotate(${(ac.iconType === 'balloon' || ac.iconType === 'parachute') ? 0 : ac.track}deg)`;
             }
         }
 
@@ -2740,8 +2749,8 @@ function initLocationSelection() {
         if (isNaN(newRange)) newRange = tempRange;
 
         // Clamp latitude to Web Mercator limits and normalize longitude beyond +/-180
-        newLat = Math.max(-85.05112878, Math.min(85.05112878, newLat));
-        newLon = ((newLon + 180) % 360 + 360) % 360 - 180;
+        newLat = normalizeLat(newLat);
+        newLon = normalizeLon(newLon);
         const inputRangeClamped = Math.max(0.001, Math.min(newRange, 20000));
 
         tempLat = newLat;
@@ -2985,8 +2994,8 @@ function exitSelectionMode(confirmChanges) {
         trackedHex = null;
 
         // Commit changes to system variables and normalize them
-        HOME_LAT = Math.max(-85.05112878, Math.min(85.05112878, tempLat));
-        HOME_LON = ((tempLon + 180) % 360 + 360) % 360 - 180;
+        HOME_LAT = normalizeLat(tempLat);
+        HOME_LON = normalizeLon(tempLon);
         RANGE_NM = Math.min(tempRange, 250); // Snap range back to API limit of 250 NM
 
         // Update address bar query parameters dynamically without a page refresh
@@ -3085,8 +3094,8 @@ function handleGPSLocate() {
                 const lon = position.coords.longitude;
 
                 // Update selection state coordinates
-                tempLat = Math.max(-85.05112878, Math.min(85.05112878, lat));
-                tempLon = ((lon + 180) % 360 + 360) % 360 - 180;
+                tempLat = normalizeLat(lat);
+                tempLon = normalizeLon(lon);
 
                 // Re-center Leaflet map (this automatically triggers handleSelectionMapChange)
                 if (map) {
@@ -3108,8 +3117,8 @@ function handleGPSLocate() {
                             locateBtn.innerText = originalText;
                             locateBtn.disabled = false;
 
-                            tempLat = Math.max(-85.05112878, Math.min(85.05112878, coords.lat));
-                            tempLon = ((coords.lon + 180) % 360 + 360) % 360 - 180;
+                            tempLat = normalizeLat(coords.lat);
+                            tempLon = normalizeLon(coords.lon);
 
                             if (map) {
                                 map.setView([tempLat, tempLon]);
