@@ -569,9 +569,6 @@ body {
     position: relative;
     background-color: var(--phosphor-bg);
     overflow: hidden; /* Prevent huge rotating sweep elements from causing scroll bounds changes */
-    contain: layout paint; /* Isolate layout and paint from parent reflows */
-    transform-style: preserve-3d;
-    backface-visibility: hidden;
     
     /* Dynamic scope size variable (95% of remaining height/width to maximize screen space while keeping base plate margin) */
     --scope-size: min(95dvh, calc(0.95 * (100vw - 480px)));
@@ -582,14 +579,6 @@ body {
     height: 100%;
     background: #020b02 !important;
     overflow: hidden;
-    contain: layout paint;
-    transform-style: preserve-3d;
-    backface-visibility: hidden;
-}
-
-.leaflet-map-pane {
-    transform-style: preserve-3d;
-    backface-visibility: hidden;
 }
 
 /* Apply monochrome green filter ONLY to map background tiles, 

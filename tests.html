@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tactical Radar Scope - Test Suite</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+        body {
+            background-color: #031005;
+            color: #00ff33;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 20px;
+            margin: 0;
+            text-shadow: 0 0 4px #00ff33;
+        }
+        h1 {
+            border-bottom: 2px solid #00ff33;
+            padding-bottom: 10px;
+            text-shadow: 0 0 8px #00ff33;
+        }
+        .stats {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #00ff33;
+            background-color: rgba(0, 255, 51, 0.05);
+            display: inline-block;
+        }
+        .test-list {
+            margin-top: 20px;
+        }
+        .test-case {
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px dashed rgba(0, 255, 51, 0.3);
+            border-radius: 4px;
+        }
+        .test-case.pass {
+            border-left: 5px solid #00ff33;
+            background-color: rgba(0, 255, 51, 0.02);
+        }
+        .test-case.fail {
+            border-left: 5px solid #ff3300;
+            color: #ff3300;
+            text-shadow: 0 0 4px #ff3300;
+            border-color: #ff3300;
+            background-color: rgba(255, 51, 0, 0.02);
+        }
+        .test-case.pending {
+            border-left: 5px solid #ffcc00;
+            color: #ffcc00;
+            text-shadow: 0 0 4px #ffcc00;
+            border-color: #ffcc00;
+            background-color: rgba(255, 204, 0, 0.02);
+        }
+        .test-name {
+            font-weight: bold;
+        }
+        .test-message {
+            margin-top: 5px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        /* Hidden mock DOM container positioned off-screen to ensure Leaflet renders markers */
+        #mock-dom-container {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            width: 100px;
+            height: 100px;
+        }
+    </style>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        // MOCK BROWSER GLOBALS & PREVENT LIVE NETWORK POLLS BEFORE APP LOADS
+        window.fetch = function() {
+            return Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve({ ac: [] })
+            });
+        };
+        
+        // Mock localStorage to ensure CodeRed state is clean
+        window.localStorage.setItem('codeRedActive', 'false');
+
+        // Mock Web Audio Context to prevent actual hardware allocation
+        class MockAudioContext {
+            constructor() {
+                this.state = 'suspended';
+                this.destination = {};
+                this.sampleRate = 44100;
+            }
+            createGain() {
+                return {
+                    gain: { setValueAtTime() {}, linearRampToValueAtTime() {} },
+                    connect() {}
+                };
+            }
+            createOscillator() {
+                return {
+                    frequency: { setValueAtTime() {} },
+                    connect() {},
+                    start() {},
+                    type: 'sine'
+                };
+            }
+            createBiquadFilter() {
+                return {
+                    frequency: { setValueAtTime() {} },
+                    Q: { setValueAtTime() {} },
+                    connect() {},
+                    type: 'bandpass'
+                };
+            }
+            createPanner() {
+                return {
+                    panningModel: 'HRTF',
+                    distanceModel: 'inverse',
+                    refDistance: 1,
+                    maxDistance: 100,
+                    rolloffFactor: 1,
+                    positionX: { setValueAtTime() {} },
+                    positionY: { setValueAtTime() {} },
+                    positionZ: { setValueAtTime() {} },
+                    connect() {}
+                };
+            }
+            createConvolver() {
+                return {
+                    buffer: null,
+                    connect() {}
+                };
+            }
+            createBuffer() {
+                return {
+                    getChannelData() { return new Float32Array(100); }
+                };
+            }
+            createBufferSource() {
+                return {
+                    buffer: null,
+                    connect() {},
+                    start() {},
+                    stop() {},
+                    loop: false
+                };
+            }
+            resume() {
+                this.state = 'running';
+                return Promise.resolve();
+            }
+            suspend() {
+                this.state = 'suspended';
+                return Promise.resolve();
+            }
+        }
+        window.AudioContext = MockAudioContext;
+        window.webkitAudioContext = MockAudioContext;
+    </script>
+</head>
+<body>
+
+    <h1>SYS_DIAGNOSTIC: TEST SUITE RUNNER</h1>
+    <div class="stats" id="stats">
+        TOTAL RUNS: <span id="total-count">0</span> | 
+        PASSED: <span id="pass-count">0</span> | 
+        FAILED: <span id="fail-count">0</span> |
+        PENDING: <span id="pending-count">0</span>
+    </div>
+
+    <div class="test-list" id="test-list">
+        <!-- Test cases populated dynamically -->
+    </div>
+
+    <!-- MOCK DOM CONTAINERS TO SATISFY INITIALIZATION SELECTORS IN APP.JS -->
+    <div id="mock-dom-container">
+        <!-- Map and Scope Elements -->
+        <div id="radar-map" style="width: 100px; height: 100px;"></div>
+        <div id="map" style="width: 100px; height: 100px;"></div>
+        <div id="sweep-line"></div>
+        <div id="glass-glare-reflection"></div>
+        
+        <!-- Status & Indicators -->
+        <div class="system-status"><span class="status-text"></span></div>
+        <div class="status-indicator"></div>
+        <div id="codered-light"></div>
+        
+        <!-- UI Coordinates Display -->
+        <div id="val-lat"></div>
+        <div id="val-lon"></div>
+        <div id="val-range"></div>
+        
+        <!-- Control Sidebar Buttons -->
+        <button id="sound-btn"></button>
+        <div id="sound-waves"></div>
+        <div id="sound-mute"></div>
+        <button id="trail-toggle"></button>
+        <button id="low-altitude-toggle"></button>
+        <button id="fullscreen-toggle"></button>
+        <button id="class-b-toggle"></button>
+        
+        <!-- Target List and Telemetry Panel -->
+        <div id="target-list"></div>
+        <div id="target-count"></div>
+        <div id="telemetry-display"></div>
+        
+        <!-- Help Modal -->
+        <button id="help-btn"></button>
+        <div id="help-modal"></div>
+        <button id="help-close"></button>
+        
+        <!-- Zoom Controls -->
+        <button id="zoom-in"></button>
+        <button id="zoom-out"></button>
+        
+        <!-- Location Selection Controls -->
+        <button id="location-select-btn"></button>
+        <button id="location-locate-btn"></button>
+        <button id="location-confirm-btn"></button>
+        <button id="location-cancel-btn"></button>
+        
+        <!-- Range Rings -->
+        <div id="ring-val-1"></div>
+        <div id="ring-val-2"></div>
+        <div id="ring-val-3"></div>
+        <div id="ring-val-4"></div>
+        <div id="ring-val-5"></div>
+
+        <!-- Scope Screws (for Easter Egg sequence checks) -->
+        <div class="scope-screw s0"></div>
+        <div class="scope-screw s45"></div>
+        <div class="scope-screw s90"></div>
+        <div class="scope-screw s135"></div>
+        <div class="scope-screw s180"></div>
+        <div class="scope-screw s225"></div>
+        <div class="scope-screw s270"></div>
+        <div class="scope-screw s315"></div>
+    </div>
+
+    <!-- LOAD APP.JS MONOLITH (OR SEQUENCED SCRIPTS) -->
+    <script src="js/warbird-db.js?v=13.00_tests"></script>
+    <script src="js/aircraft.js?v=13.00_tests"></script>
+    <script src="js/chassis.js?v=13.00_tests"></script>
+    <script src="js/radar-scope.js?v=13.00_tests"></script>
+    <script src="js/ingestion.js?v=13.00_tests"></script>
+    <script src="js/audio-engine.js?v=13.00_tests"></script>
+    <script src="app.js?v=13.00_tests"></script>
+    <!-- LOAD SHARED TEST SPECIFICATIONS -->
+    <script src="tests-integration-spec.js"></script>
+    <script src="tests-unit-spec.js"></script>
+
+    <!-- TEST SUITE RUNNER -->
+    <script>
+        const testList = document.getElementById('test-list');
+        let totalCount = 0;
+        let passCount = 0;
+        let failCount = 0;
+        let pendingCount = 0;
+
+        function updateStats() {
+            document.getElementById('total-count').innerText = totalCount;
+            document.getElementById('pass-count').innerText = passCount;
+            document.getElementById('fail-count').innerText = failCount;
+            document.getElementById('pending-count').innerText = pendingCount;
+        }
+
+        const context = window;
+        context.assert = function(name, condition, message) {
+            totalCount++;
+            const card = document.createElement('div');
+            card.className = 'test-case';
+            
+            if (condition) {
+                passCount++;
+                card.classList.add('pass');
+                card.innerHTML = `<div class="test-name">✔ ${name}</div><div class="test-message">${message || 'Assertion passed successfully.'}</div>`;
+            } else {
+                failCount++;
+                card.classList.add('fail');
+                card.innerHTML = `<div class="test-name">✘ ${name}</div><div class="test-message">FAILED: ${message || 'Assertion failed.'}</div>`;
+            }
+            testList.appendChild(card);
+            updateStats();
+        };
+
+        context.assertPending = function(name, message) {
+            totalCount++;
+            pendingCount++;
+            const card = document.createElement('div');
+            card.className = 'test-case pending';
+            card.innerHTML = `<div class="test-name">○ PENDING FEATURE: ${name}</div><div class="test-message">${message || 'This feature is slated for upcoming refactoring.'}</div>`;
+            testList.appendChild(card);
+            updateStats();
+        };
+
+        // Wait for page load and app initialization to complete
+        window.addEventListener('load', () => {
+            // Disable active audio system in tests to avoid node creation errors
+            if (typeof audioCtx !== 'undefined') audioCtx = null;
+            if (typeof sweepActive !== 'undefined') sweepActive = false;
+
+            console.log("Starting test suites...");
+            
+            // Add a visual header for Unit tests
+            const unitHeader = document.createElement('h2');
+            unitHeader.innerText = "UNIT TESTS";
+            unitHeader.style.borderBottom = "1px solid rgba(0, 255, 51, 0.4)";
+            unitHeader.style.paddingBottom = "5px";
+            testList.appendChild(unitHeader);
+            executeRadarUnitTestSuite(context);
+
+            // Add a visual header for Integration tests
+            const integrationHeader = document.createElement('h2');
+            integrationHeader.innerText = "INTEGRATION TESTS";
+            integrationHeader.style.borderBottom = "1px solid rgba(0, 255, 51, 0.4)";
+            integrationHeader.style.paddingBottom = "5px";
+            integrationHeader.style.marginTop = "30px";
+            testList.appendChild(integrationHeader);
+            executeRadarIntegrationTestSuite(context);
+        });
+    </script>
+</body>
+</html>
