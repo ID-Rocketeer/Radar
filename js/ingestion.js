@@ -46,8 +46,10 @@ var IngestionService = class IngestionService {
             this.activePollController.abort();
         }
         
+        let controller = null;
         if (typeof AbortController !== 'undefined') {
-            this.activePollController = new AbortController();
+            controller = new AbortController();
+            this.activePollController = controller;
         }
 
         this.updateStatus("SCANNING...", true);
@@ -55,11 +57,23 @@ var IngestionService = class IngestionService {
         const params = typeof getParams === 'function' ? getParams() : { lat: 0, lon: 0, rangeNm: 40 };
         const url = `https://api.airplanes.live/v2/point/${params.lat}/${params.lon}/${params.rangeNm}`;
 
-        const fetchOptions = this.activePollController ? { signal: this.activePollController.signal } : {};
+        const fetchOptions = controller ? { signal: controller.signal } : {};
+
+        // 6-second timeout to prevent requests from hanging indefinitely on network loss
+        let timeoutId = null;
+        if (controller && typeof setTimeout === 'function') {
+            timeoutId = setTimeout(() => {
+                if (this.activePollController === controller) {
+                    console.warn("Flight data query timed out. Aborting request.");
+                    controller.abort();
+                }
+            }, 6000);
+        }
 
         if (typeof fetch === 'function') {
             fetch(url, fetchOptions)
                 .then(response => {
+                    if (timeoutId) clearTimeout(timeoutId);
                     if (!response.ok) throw new Error("HTTP error " + response.status);
                     return response.json();
                 })
@@ -79,9 +93,9 @@ var IngestionService = class IngestionService {
                             serverNow *= 1000; // Convert seconds from airplanes.live API to milliseconds
                         }
                         const clockOffset = serverNow - localNow;
-                        const nextServerTick = Math.ceil(serverNow / 10000) * 10000 + 1500;
+                        const nextServerTick = Math.floor(serverNow / 10000) * 10000 + 10000 + 1500;
                         const targetLocalTime = nextServerTick - clockOffset;
-                        delay = Math.max(1000, targetLocalTime - Date.now());
+                        delay = Math.max(2000, targetLocalTime - Date.now());
                     }
 
                     // Recursively schedule next poll
@@ -90,8 +104,14 @@ var IngestionService = class IngestionService {
                     }, delay);
                 })
                 .catch(error => {
-                    if (error.name === 'AbortError') return;
+                    if (timeoutId) clearTimeout(timeoutId);
                     if (!this.isPolling) return;
+
+                    // If aborted because a newer request was started, exit silently without scheduling anything
+                    if (error.name === 'AbortError' && this.activePollController !== controller) {
+                        return;
+                    }
+                    
                     console.error("Flight data poll failed:", error);
                     this.updateStatus("LINK ERROR", false);
                     

@@ -245,13 +245,21 @@ var Aircraft = class Aircraft {
     }
 
     cacheDomElements() {
-        if (this.markerEl) return; // Already cached
+        if (this.markerEl && typeof document !== 'undefined' && document.body && document.body.contains(this.markerEl)) return; // Already cached and attached to DOM
+        
+        // Reset cache if element is detached
+        this.markerEl = null;
+        this.pathEl = null;
+        this.iconSvg = null;
+
         const safeHex = sanitizeId(this.hex);
-        const markerDom = document.getElementById(`marker-${safeHex}`);
-        if (markerDom) {
-            this.markerEl = markerDom;
-            this.pathEl = markerDom.querySelector('.aircraft-icon path');
-            this.iconSvg = markerDom.querySelector('.aircraft-icon');
+        if (typeof document !== 'undefined') {
+            const markerDom = document.getElementById(`marker-${safeHex}`);
+            if (markerDom) {
+                this.markerEl = markerDom;
+                this.pathEl = markerDom.querySelector('.aircraft-icon path');
+                this.iconSvg = markerDom.querySelector('.aircraft-icon');
+            }
         }
     }
 

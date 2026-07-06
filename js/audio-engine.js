@@ -421,6 +421,7 @@ var SpatialAudioConsole = class SpatialAudioConsole {
         this.audioSources = [];
         this.panner = null;
         this.audioEnabled = false;
+        this.nextScheduleTime = undefined;
     }
 
     init() {
@@ -443,14 +444,61 @@ var SpatialAudioConsole = class SpatialAudioConsole {
     updatePanner(nextAngle) {
         this.audioEnabled = audioEnabled;
         if (this.audioCtx && this.audioEnabled && this.panner) {
-            const rad = (nextAngle % 360) * Math.PI / 180;
-            const x = Math.sin(rad) * 1.5;
-            const z = -Math.cos(rad) * 1.5;
-            if (this.panner.positionX && this.panner.positionX.setValueAtTime) {
-                this.panner.positionX.setValueAtTime(x, this.audioCtx.currentTime);
-                this.panner.positionZ.setValueAtTime(z, this.audioCtx.currentTime);
-            } else if (this.panner.setPosition) {
-                this.panner.setPosition(x, 2.5, z);
+            // Handle sweep pauses/interruptions (e.g. selection mode)
+            const isActive = typeof sweepActive !== 'undefined' ? sweepActive : true;
+            if (!isActive) {
+                if (this.panner.positionX && this.panner.positionX.cancelScheduledValues) {
+                    this.panner.positionX.cancelScheduledValues(this.audioCtx.currentTime);
+                    this.panner.positionZ.cancelScheduledValues(this.audioCtx.currentTime);
+                }
+                this.nextScheduleTime = undefined;
+                return;
+            }
+
+            if (this.nextScheduleTime === undefined || this.nextScheduleTime < this.audioCtx.currentTime) {
+                this.nextScheduleTime = this.audioCtx.currentTime;
+            }
+
+            const lookAhead = 1.0; // 1 second buffer
+            const scheduleInterval = 5.0; // 5-second chunk updates
+
+            if (this.nextScheduleTime < this.audioCtx.currentTime + lookAhead) {
+                const startTime = this.nextScheduleTime;
+                const duration = scheduleInterval;
+                const tCurrent = this.audioCtx.currentTime;
+
+                const steps = 100;
+                const sineCurve = new Float32Array(steps);
+                const cosineCurve = new Float32Array(steps);
+
+                for (let i = 0; i < steps; i++) {
+                    const fraction = i / (steps - 1);
+                    const t = startTime + fraction * duration;
+                    // Pre-calculate angle sweep: nextAngle + 36 * (t - tCurrent)
+                    const angle = nextAngle + 36 * (t - tCurrent);
+                    const rad = (angle % 360) * Math.PI / 180;
+                    sineCurve[i] = Math.sin(rad) * 1.5;
+                    cosineCurve[i] = -Math.cos(rad) * 1.5;
+                }
+
+                if (this.panner.positionX && this.panner.positionX.setValueCurveAtTime) {
+                    try {
+                        this.panner.positionX.cancelScheduledValues(startTime);
+                        this.panner.positionZ.cancelScheduledValues(startTime);
+                        this.panner.positionX.setValueCurveAtTime(sineCurve, startTime, duration);
+                        this.panner.positionZ.setValueCurveAtTime(cosineCurve, startTime, duration);
+                    } catch (e) {
+                        console.warn("setValueCurveAtTime failed, falling back to setValueAtTime:", e);
+                        const rad = (nextAngle % 360) * Math.PI / 180;
+                        this.panner.positionX.setValueAtTime(Math.sin(rad) * 1.5, tCurrent);
+                        this.panner.positionZ.setValueAtTime(-Math.cos(rad) * 1.5, tCurrent);
+                    }
+                } else if (this.panner.setPosition) {
+                    const rad = (nextAngle % 360) * Math.PI / 180;
+                    this.panner.setPosition(Math.sin(rad) * 1.5, 2.5, -Math.cos(rad) * 1.5);
+                }
+
+                this.nextScheduleTime += duration;
             }
         }
     }

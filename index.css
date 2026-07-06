@@ -356,7 +356,8 @@ body {
 }
 
 .panel-controls {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 8px;
     margin-top: 5px;
 }
@@ -369,6 +370,8 @@ body {
 /* Buttons Styling */
 .retro-btn {
     flex: 1;
+    width: 100%;
+    box-sizing: border-box;
     background: transparent;
     border: 1px solid var(--panel-border);
     color: var(--phosphor-green);

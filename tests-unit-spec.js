@@ -247,6 +247,107 @@ function executeRadarUnitTestSuite(context) {
         } else {
             assertPending("map.invalidateSize is called at startup", "Skipped in browser environment (requires mock Leaflet spy).");
         }
+
+        // 14.12 IngestionService boundary polling calculation test
+        const originalSetTimeout = context.setTimeout;
+        const originalFetch = context.fetch;
+        const originalDateNow = context.Date.now;
+
+        try {
+            let capturedDelay = null;
+            context.setTimeout = (callback, delay) => {
+                capturedDelay = delay;
+                return 9999;
+            };
+
+            context.Date.now = () => 1712345685000;
+
+            context.fetch = () => {
+                return {
+                    then(onFulfilled) {
+                        const response = {
+                            ok: true,
+                            json() {
+                                return {
+                                    then(onJsonFulfilled) {
+                                        onJsonFulfilled({ now: 1712345680, ac: [] });
+                                        return { catch() {} };
+                                    }
+                                };
+                            }
+                        };
+                        return onFulfilled(response);
+                    },
+                    catch() { return this; }
+                };
+            };
+
+            const testIngest = new context.IngestionService({ pollIntervalMs: 10000 });
+            testIngest.isPolling = true;
+            testIngest.poll(() => ({ lat: 0, lon: 0, rangeNm: 40 }), null);
+
+            assert("IngestionService nextServerTick avoids rapid polling loop", capturedDelay > 5000, "Calculated next poll delay was " + capturedDelay + "ms (should be >5000ms to avoid loop).");
+
+            // Test timeout abort recovery
+            capturedDelay = null;
+            context.fetch = () => {
+                return {
+                    then(onFulfilled) {
+                        return {
+                            then() { return this; },
+                            catch(onRejected) {
+                                const err = new Error("Request timed out");
+                                err.name = "AbortError";
+                                onRejected(err);
+                                return this;
+                            }
+                        };
+                    }
+                };
+            };
+
+            testIngest.poll(() => ({ lat: 0, lon: 0, rangeNm: 40 }), null);
+            assert("IngestionService schedules retry on request timeout abort", capturedDelay === 10000, "Calculated next poll delay was " + capturedDelay + "ms (should be 10000ms to recover).");
+
+            // 14.13 Aircraft.prototype.cacheDomElements handles detached markers
+            const originalContains = context.document.body.contains;
+            const originalGetElementById = context.document.getElementById;
+            try {
+                const testAc = new context.Aircraft("fake_hex", { t: "B17" });
+                
+                const firstMockEl = { id: "marker-fake_hex", isFirst: true, querySelector() {} };
+                const secondMockEl = { id: "marker-fake_hex", isSecond: true, querySelector() {} };
+
+                let currentMockEl = firstMockEl;
+                context.document.getElementById = (id) => {
+                    if (id === "marker-fake_hex") return currentMockEl;
+                    return null;
+                };
+
+                let isAttached = true;
+                context.document.body.contains = (el) => {
+                    if (el === firstMockEl) return isAttached;
+                    return true;
+                };
+
+                testAc.cacheDomElements();
+                assert("cacheDomElements caches initial element", testAc.markerEl === firstMockEl, "Initial DOM element was cached.");
+
+                // Simulate DOM detachment
+                isAttached = false;
+                currentMockEl = secondMockEl;
+
+                testAc.cacheDomElements();
+                assert("cacheDomElements updates cache for detached elements", testAc.markerEl === secondMockEl, "Detached element was cleaned and the new active element was cached.");
+            } finally {
+                context.document.body.contains = originalContains;
+                context.document.getElementById = originalGetElementById;
+            }
+        } finally {
+            context.setTimeout = originalSetTimeout;
+            context.fetch = originalFetch;
+            context.Date.now = originalDateNow;
+        }
     } catch (e) {
         assert("TEST SUITE 14 EXCEPTION", false, e.stack || e.message);
     }

@@ -351,6 +351,22 @@ function executeRadarIntegrationTestSuite(context) {
         assert("SpatialAudioConsole encapsulates Context", context.spatialAudioConsole.audioCtx === context.audioCtx, "Console holds reference to AudioContext.");
         assert("SpatialAudioConsole encapsulates panner", context.spatialAudioConsole.panner === context.rumblePanner, "Console holds reference to Sweep panner node.");
 
+        if (context.rumblePanner && context.rumblePanner.positionX && context.rumblePanner.positionX._setValueCurveCount !== undefined) {
+            context.audioEnabled = true;
+            context.sweepActive = true;
+            context.spatialAudioConsole.updatePanner(90);
+            assert("Audio Engine - Panner Schedules Curves", context.rumblePanner.positionX._setValueCurveCount > 0, "setValueCurveAtTime was called on the mock panner.");
+
+            context.sweepActive = false;
+            context.spatialAudioConsole.updatePanner(90);
+            assert("Audio Engine - Pausing Sweep Cancels Schedules", context.rumblePanner.positionX._cancelScheduledValuesCount > 0, "cancelScheduledValues was called when sweep is inactive.");
+            context.sweepActive = true; // restore
+            context.audioEnabled = false; // restore
+        } else {
+            assert("Audio Engine - Panner Schedules Curves (SKIPPED in browser)", true, "Skipped spy checks in browser environment.");
+            assert("Audio Engine - Pausing Sweep Cancels Schedules (SKIPPED in browser)", true, "Skipped spy checks in browser environment.");
+        }
+
         context.spatialAudioConsole.toggle();
     } catch (e) {
         assert("TEST SUITE 12 EXCEPTION", false, e.message);

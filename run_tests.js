@@ -265,6 +265,7 @@ class MockAudioContext {
         this.state = 'suspended';
         this.destination = {};
         this.sampleRate = 44100;
+        this.currentTime = 0;
     }
     createGain() {
         return {
@@ -295,9 +296,21 @@ class MockAudioContext {
             refDistance: 1,
             maxDistance: 100,
             rolloffFactor: 1,
-            positionX: { setValueAtTime() {} },
+            positionX: { 
+                _setValueCurveCount: 0,
+                _cancelScheduledValuesCount: 0,
+                setValueAtTime() {},
+                setValueCurveAtTime(curve, start, dur) { this._setValueCurveCount++; },
+                cancelScheduledValues(start) { this._cancelScheduledValuesCount++; }
+            },
             positionY: { setValueAtTime() {} },
-            positionZ: { setValueAtTime() {} },
+            positionZ: { 
+                _setValueCurveCount: 0,
+                _cancelScheduledValuesCount: 0,
+                setValueAtTime() {},
+                setValueCurveAtTime(curve, start, dur) { this._setValueCurveCount++; },
+                cancelScheduledValues(start) { this._cancelScheduledValuesCount++; }
+            },
             connect() {}
         };
     }
