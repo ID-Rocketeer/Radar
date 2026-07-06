@@ -504,4 +504,4 @@ var SpatialAudioConsole = class SpatialAudioConsole {
     }
 };
 
-var spatialAudioConsole = new SpatialAudioConsole();
+// SpatialAudioConsole instance is now explicitly created during system initialization in app.js

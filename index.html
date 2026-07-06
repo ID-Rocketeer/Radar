@@ -290,6 +290,36 @@
         </div>
     </div>
 
+    <!-- Connection Debugger Modal -->
+    <div class="modal-overlay" id="debug-modal">
+        <div class="modal-content sidebar-glass-panel" style="max-width: 750px;">
+            <div class="modal-header">
+                <span class="modal-title">// LINK DIAGNOSTICS & SYSTEM HISTOGRAM</span>
+                <button class="modal-close" id="debug-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>The table below logs the 15 most recent telemetry API polling operations. When a <code>LINK ERROR</code> is detected, diagnostics are captured and display update loops are temporarily frozen to preserve telemetry logs for debugging.</p>
+                <div style="overflow-x: auto;">
+                    <table class="debug-log-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp (UTC)</th>
+                                <th>Request URL</th>
+                                <th>Poll Status</th>
+                                <th>Latency</th>
+                                <th>Targets</th>
+                                <th>Diagnostic Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="debug-log-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- SVG Filter for Torn Paper Edges -->
     <svg style="position: absolute; width: 0; height: 0; pointer-events: none;" width="0" height="0">
         <defs>
@@ -303,9 +333,11 @@
     <!-- Leaflet JS -->
     <script data-cfasync="false" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <!-- Application Logic (Sequenced Imports) -->
+    <script src="js/utils.js?v=13.00"></script>
     <script src="js/warbird-db.js?v=13.00"></script>
     <script src="js/aircraft.js?v=13.00"></script>
     <script src="js/chassis.js?v=13.00"></script>
+    <script src="js/radar-sidebar.js?v=13.00"></script>
     <script src="js/radar-scope.js?v=13.00"></script>
     <script src="js/ingestion.js?v=13.00"></script>
     <script src="js/audio-engine.js?v=13.00"></script>

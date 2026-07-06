@@ -2860,3 +2860,59 @@ body {
     pointer-events: auto;
     z-index: 100;
 }
+
+/* Debug Log Table Styling */
+.debug-log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-radar), monospace;
+    font-size: 0.8rem;
+    margin-top: 15px;
+    color: var(--phosphor-green);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+    background: rgba(0, 10, 2, 0.9);
+}
+.debug-log-table th, .debug-log-table td {
+    border: 1px solid rgba(57, 255, 20, 0.2);
+    padding: 6px 10px;
+    text-align: left;
+}
+.debug-log-table th {
+    background: rgba(57, 255, 20, 0.1);
+    color: var(--phosphor-green-bright);
+    text-transform: uppercase;
+    font-weight: bold;
+}
+.debug-log-table tr:nth-child(even) {
+    background: rgba(57, 255, 20, 0.05);
+}
+.debug-log-table .status-online {
+    color: var(--phosphor-green-bright);
+}
+.debug-log-table .status-error {
+    color: #ff3b30;
+    text-shadow: 0 0 4px rgba(255, 59, 48, 0.5);
+}
+.debug-log-table .status-scanning {
+    color: #ffcc00;
+    text-shadow: 0 0 4px rgba(255, 204, 0, 0.5);
+}
+
+.debug-enabled .system-status {
+    cursor: pointer !important;
+}
+.debug-enabled .system-status:hover {
+    color: var(--phosphor-green-bright) !important;
+    text-shadow: 0 0 8px var(--phosphor-glow) !important;
+}
+.system-status {
+    user-select: none !important;
+}
+
+/* Allow text selection inside modals for copy-pasting diagnostics */
+.modal-overlay,
+.modal-content,
+.modal-content * {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+}

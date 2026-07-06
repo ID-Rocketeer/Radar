@@ -1,190 +1,4 @@
-/**
- * RadarSidebar: Handles HTML DOM list updates, detail panel injections,
- * and target counters. Safe to instantiate in headless test environments.
- */
-var RadarSidebar = class RadarSidebar {
-    constructor(listContainerId, detailsContainerId, countId) {
-        this.listContainer = listContainerId ? document.getElementById(listContainerId) : null;
-        this.detailsContainer = detailsContainerId ? document.getElementById(detailsContainerId) : null;
-        this.countElement = countId ? document.getElementById(countId) : null;
-        this.domRowMap = {};
-    }
-
-    updateCount(count) {
-        if (this.countElement) {
-            this.countElement.innerText = count;
-        }
-    }
-
-    renderList(filteredAc, selectedHex, classBEnabled, onSelectCallback) {
-        if (!this.listContainer) return;
-
-        if (filteredAc.length === 0) {
-            this.listContainer.innerHTML = `<div class="empty-list-message">NO TARGETS MATCHING CURRENT SELECTION IN RANGE</div>`;
-            this.domRowMap = {};
-            return;
-        }
-
-        // Remove empty list message if it's there
-        const emptyMsg = this.listContainer.querySelector('.empty-list-message');
-        if (emptyMsg) {
-            this.listContainer.removeChild(emptyMsg);
-        }
-
-        const currentHexes = new Set(filteredAc.map(ac => ac.hex));
-
-        // Remove DOM elements for aircraft that are no longer in the list
-        Object.keys(this.domRowMap).forEach(hex => {
-            if (!currentHexes.has(hex)) {
-                const el = this.domRowMap[hex];
-                if (el && el.parentNode) {
-                    el.parentNode.removeChild(el);
-                }
-                delete this.domRowMap[hex];
-            }
-        });
-
-        // Reconcile and position rows
-        filteredAc.forEach((ac, idx) => {
-            const safeHex = sanitizeId(ac.hex);
-            let item = this.domRowMap[ac.hex];
-
-            if (!item) {
-                item = document.createElement('div');
-                item.id = `row-${safeHex}`;
-                item.addEventListener('click', () => {
-                    if (onSelectCallback) onSelectCallback(ac.hex);
-                });
-                this.domRowMap[ac.hex] = item;
-            }
-
-            // Apply updated classification classes
-            const isB = classBEnabled && ac.isClassB;
-            item.className = `target-item ${ac.mil ? 'mil' : ''} ${ac.isActiveWarbird ? 'warbird' : ''} ${isB ? 'special-b' : ''} ${selectedHex === ac.hex ? 'selected' : ''}`;
-
-            // Build HTML content and replace only if changed to prevent browser paint loops
-            const distVal = ac.dist || 0;
-            const formattedDst = distVal < 10 ? distVal.toFixed(3) : distVal.toFixed(1);
-            const htmlContent = `
-                <span class="col-callsign lbl-callsign">${ac.callsign}</span>
-                <span class="col-alt">${ac.isOnGround ? 'GND' : (ac.alt ? RadarSidebar.formatNumber(ac.alt) : '0')}</span>
-                <span class="col-spd">${ac.speed ? ac.speed : '0'}</span>
-                <span class="col-dst">${formattedDst}</span>
-            `;
-            if (item.innerHTML !== htmlContent) {
-                item.innerHTML = htmlContent;
-            }
-
-            // Maintain correct sorting positions in the list
-            const childAtIdx = this.listContainer.children[idx];
-            if (childAtIdx) {
-                if (childAtIdx !== item) {
-                    this.listContainer.insertBefore(item, childAtIdx);
-                }
-            } else {
-                this.listContainer.appendChild(item);
-            }
-        });
-    }
-
-    updateRow(ac) {
-        const safeHex = sanitizeId(ac.hex);
-        const rowEl = document.getElementById(`row-${safeHex}`);
-        if (rowEl && rowEl.children.length >= 4) {
-            const altText = ac.isOnGround ? 'GND' : (ac.alt ? RadarSidebar.formatNumber(ac.alt) : '0');
-            const spdText = ac.speed ? ac.speed.toString() : '0';
-            const distVal = ac.dist || 0;
-            const dstText = distVal < 10 ? distVal.toFixed(3) : distVal.toFixed(1);
-
-            const altEl = rowEl.children[1];
-            const spdEl = rowEl.children[2];
-            const dstEl = rowEl.children[3];
-
-            if (altEl && altEl.textContent !== altText) altEl.textContent = altText;
-            if (spdEl && spdEl.textContent !== spdText) spdEl.textContent = spdText;
-            if (dstEl && dstEl.textContent !== dstText) dstEl.textContent = dstText;
-        }
-    }
-
-    renderDetails(ac, isTracked, classBEnabled, onHexClickCallback) {
-        if (!this.detailsContainer) return;
-
-        const headingText = RadarSidebar.getHeadingDirection(ac.track);
-
-        this.detailsContainer.innerHTML = `
-            <div class="tel-row">
-                <span class="tel-label">HEX ADDR:</span>
-                <span class="tel-val hex-tracker-toggle" id="hex-toggle-${ac.hex}" style="cursor: pointer; user-select: none; font-weight: bold; ${isTracked ? 'color: #d4ff00; text-shadow: 0 0 6px rgba(212, 255, 0, 0.6);' : ''}">${ac.hex.toUpperCase()}</span>
-            </div>
-            <div class="tel-row">
-                <span class="tel-label">CALLSIGN:</span>
-                <span class="tel-val">${ac.callsign}</span>
-            </div>
-            <div class="tel-row">
-                <span class="tel-label">REGISTRATION:</span>
-                <span class="tel-val">${ac.reg}</span>
-            </div>
-            <div class="tel-row">
-                <span class="tel-label">AIRCRAFT MODEL:</span>
-                <span class="tel-val">${ac.type} (${ac.desc})</span>
-            </div>
-            <div class="tel-row">
-                <span class="tel-label">ALTITUDE:</span>
-                <span class="tel-val">${ac.isOnGround ? 'GND' : (ac.alt ? RadarSidebar.formatNumber(ac.alt) + ' FT' : '0 FT')}</span>
-            </div>
-            <div class="tel-row">
-                <span class="tel-label">GROUND SPEED:</span>
-                <span class="tel-val">${ac.speed} KT</span>
-            </div>
-            <div class="tel-row">
-                <span class="tel-label">BEARING:</span>
-                <span class="tel-val">${ac.track}° (${headingText})</span>
-            </div>
-            <div class="tel-row">
-                <span class="tel-label">RANGE DISTANCE:</span>
-                <span class="tel-val">${(ac.dist || 0) < 10 ? (ac.dist || 0).toFixed(3) : (ac.dist || 0).toFixed(1)} NM</span>
-            </div>
-            <div class="tel-row">
-                <span class="tel-label">SQUAWK CODE:</span>
-                <span class="tel-val">${ac.squawk}</span>
-            </div>
-            <div class="tel-row">
-                <span class="tel-label">CLASSIFICATION:</span>
-                <span class="tel-val ${ac.mil ? 'alert' : (ac.isActiveWarbird ? 'warbird' : (classBEnabled && ac.isClassB ? 'special-b' : ''))}">
-                    ${ac.mil ? `MILITARY SECURE (${(ac.iconType || 'jet').toUpperCase().replace('_', ' ')})` : 
-                      (ac.isActiveWarbird ? `WARBIRD (${ac.warbirdSubtype})` : 
-                      (ac.isClassB ? 
-                        (classBEnabled ? `CLASS B (${ac.specialBSubtype})` : `CIVILIAN AIR TRAFFIC (${ac.specialBSubtype})`) : 
-                        `CIVILIAN AIR TRAFFIC (${(ac.iconType || 'jet').toUpperCase().replace('_', ' ')})`))}
-                </span>
-            </div>
-        `;
-
-        // Attach click event listener for the hex tracker toggle
-        const toggleBtn = document.getElementById(`hex-toggle-${ac.hex}`);
-        if (toggleBtn && onHexClickCallback) {
-            toggleBtn.addEventListener('click', () => {
-                onHexClickCallback(ac);
-            });
-        }
-    }
-
-    resetDetails() {
-        if (this.detailsContainer) {
-            this.detailsContainer.innerHTML = `<div class="empty-telemetry">NO TARGET ACQUIRED. SELECT A TARGET FROM THE RADAR SCREEN OR LIST PANEL.</div>`;
-        }
-    }
-
-    static getHeadingDirection(degrees) {
-        const val = Math.floor((degrees / 22.5) + 0.5);
-        const arr = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-        return arr[(val % 16)];
-    }
-
-    static formatNumber(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    }
-};
+// RadarSidebar class has been extracted to js/radar-sidebar.js
 
 /**
  * RadarScope: Manages Leaflet map state, coordinates center shifts,
@@ -209,8 +23,6 @@ var RadarScope = class RadarScope {
         this.crosshair = null;
         this.rangeRings = [];
         this.onCenterChanged = null;
-
-        this.sidebar = new RadarSidebar('target-list', 'telemetry-display', 'target-count');
 
         // Manual Location Selection/Calibration Mode State
         this.isSelectionMode = false;
@@ -403,44 +215,6 @@ var RadarScope = class RadarScope {
             sweepBatchSectorSize = Math.max(1, Math.floor((visibleCount + 360) / 360));
         }
 
-        // Refresh sidebar displays
-        this.updateSidebarList(activeAircraft);
-    }
-
-    updateSidebarList(activeAircraft) {
-        // Filter and sort active aircraft list
-        const filteredAc = Object.values(activeAircraft).filter(ac => {
-            if (!ac.sweptOnce) return false;
-            if (this.lowAltitudeFilterEnabled && ac.alt >= 18000) return false;
-            if (this.activeFilter === 'mil') return ac.mil || ac.isActiveWarbird;
-            if (this.activeFilter === 'commercial') return ac.isCommercial;
-            if (this.activeFilter === 'ga') return !ac.mil && !ac.isCommercial;
-            return true;
-        });
-
-        filteredAc.sort((a, b) => {
-            if (typeof warbirdModeActive !== 'undefined' && warbirdModeActive) {
-                const aWb = a.isWarbird;
-                const bWb = b.isWarbird;
-                if (aWb && !bWb) return -1;
-                if (!aWb && bWb) return 1;
-            }
-            if (this.classBEnabled) {
-                const aB = a.isClassB;
-                const bB = b.isClassB;
-                if (aB && !bB) return -1;
-                if (!aB && bB) return 1;
-            }
-            if (a.mil && !b.mil) return -1;
-            if (!a.mil && b.mil) return 1;
-            return a.dist - b.dist;
-        });
-
-        if (this.sidebar) {
-            this.sidebar.updateCount(filteredAc.length);
-            const selectedHexVal = typeof selectedHex !== 'undefined' ? selectedHex : this.selectedHex;
-            this.sidebar.renderList(filteredAc, selectedHexVal, this.classBEnabled, typeof selectAircraft === 'function' ? selectAircraft : null);
-        }
     }
 
     initLocationSelection(callbacks) {
@@ -490,8 +264,7 @@ var RadarScope = class RadarScope {
             // Sync inputs with the parsed/clamped values in case they typed out of bounds
             latInput.value = this.tempLat.toFixed(5);
             lonInput.value = this.tempLon.toFixed(5);
-            const rangeVal = inputRangeClamped;
-            rangeInput.value = rangeVal < 10 ? rangeVal.toFixed(3) : rangeVal.toFixed(1);
+            rangeInput.value = inputRangeClamped < 10 ? inputRangeClamped.toFixed(3) : inputRangeClamped.toFixed(1);
 
             // Set the programmatic change flag to prevent race conditions during setView
             this.isProgrammaticChange = true;
@@ -601,8 +374,7 @@ var RadarScope = class RadarScope {
         if (latInput) latInput.value = this.tempLat.toFixed(5);
         if (lonInput) lonInput.value = this.tempLon.toFixed(5);
         if (rangeInput) {
-            const rangeVal = currentDisplayed;
-            rangeInput.value = rangeVal < 10 ? rangeVal.toFixed(3) : rangeVal.toFixed(1);
+            rangeInput.value = currentDisplayed < 10 ? currentDisplayed.toFixed(3) : currentDisplayed.toFixed(1);
         }
 
         // Allow global zoom out (0) up to high-precision zoom level (20) during selection
@@ -663,8 +435,7 @@ var RadarScope = class RadarScope {
             lonInput.value = this.tempLon.toFixed(5);
         }
         if (rangeInput && document.activeElement !== rangeInput) {
-            const rangeVal = displayedRange;
-            rangeInput.value = rangeVal < 10 ? rangeVal.toFixed(3) : rangeVal.toFixed(1);
+            rangeInput.value = displayedRange < 10 ? displayedRange.toFixed(3) : displayedRange.toFixed(1);
         }
 
         // Rescale and center Leaflet range rings around the new target center

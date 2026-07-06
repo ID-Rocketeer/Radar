@@ -88,6 +88,12 @@ function executeRadarUnitTestSuite(context) {
         assert("Aircraft isActiveWarbird false for B17 when mode disabled", acB17.isActiveWarbird === false, "B17 is not active warbird when mode is disabled.");
         assert("Aircraft iconType 'light' fallback for B17 when mode disabled", acB17.iconType === "light", "B17 falls back to standard G/A propeller 'light' icon when warbird mode is disabled.");
 
+        // 14.4.5 Shared Utilities Unit Tests
+        assert("utils.calcDistance exists", typeof context.calcDistance === "function", "calcDistance utility defined.");
+        assert("utils.calcBearing exists", typeof context.calcBearing === "function", "calcBearing utility defined.");
+        assert("utils.escapeHtml escapes HTML tags", context.escapeHtml("<div>") === "&lt;div&gt;", "escapeHtml escapes tag brackets.");
+        assert("utils.sanitizeId sanitizes ID selectors", context.sanitizeId("hex~val") === "hex_val", "sanitizeId replaces non-alphanumeric chars with underscore.");
+
         // 14.5 RadarScope, RadarSidebar & IngestionService Instantiation
         assert("RadarSidebar class exists", typeof context.RadarSidebar !== "undefined", "RadarSidebar class is defined.");
         assert("RadarScope class exists", typeof context.RadarScope !== "undefined", "RadarScope class is defined.");
@@ -97,7 +103,7 @@ function executeRadarUnitTestSuite(context) {
         assert("RadarScope homeLat property set", mockScope.homeLat === 10, "RadarScope homeLat option bound correctly.");
         assert("RadarScope homeLon property set", mockScope.homeLon === 20, "RadarScope homeLon option bound correctly.");
         assert("RadarScope rangeNm property set", mockScope.rangeNm === 50, "RadarScope rangeNm option bound correctly.");
-        assert("RadarScope has instantiated RadarSidebar", mockScope.sidebar instanceof context.RadarSidebar, "RadarScope contains RadarSidebar child instance.");
+        assert("RadarSidebar can be instantiated independently", new context.RadarSidebar() instanceof context.RadarSidebar, "RadarSidebar instantiates independently.");
 
         const mockIngest = new context.IngestionService({ pollIntervalMs: 5000 });
         assert("IngestionService pollIntervalMs property set", mockIngest.pollIntervalMs === 5000, "IngestionService pollIntervalMs option bound correctly.");
@@ -307,7 +313,7 @@ function executeRadarUnitTestSuite(context) {
             };
 
             testIngest.poll(() => ({ lat: 0, lon: 0, rangeNm: 40 }), null);
-            assert("IngestionService schedules retry on request timeout abort", capturedDelay === 10000, "Calculated next poll delay was " + capturedDelay + "ms (should be 10000ms to recover).");
+            assert("IngestionService schedules retry on request timeout abort", capturedDelay === 10000, "Calculated next poll delay was " + capturedDelay + "ms (should be 10000ms to recover). activePollController=" + (testIngest.activePollController ? "defined" : "null"));
 
             // 14.13 Aircraft.prototype.cacheDomElements handles detached markers
             const originalContains = context.document.body.contains;
@@ -321,7 +327,7 @@ function executeRadarUnitTestSuite(context) {
                 let currentMockEl = firstMockEl;
                 context.document.getElementById = (id) => {
                     if (id === "marker-fake_hex") return currentMockEl;
-                    return null;
+                    return originalGetElementById.call(context.document, id);
                 };
 
                 let isAttached = true;

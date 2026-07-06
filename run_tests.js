@@ -354,9 +354,11 @@ const splitPath = path.join(__dirname, 'js', 'warbird-db.js');
 if (fs.existsSync(splitPath)) {
     console.log("Loading modular scripts...");
     scripts.push(
+        fs.readFileSync(path.join(__dirname, 'js', 'utils.js'), 'utf8'),
         fs.readFileSync(path.join(__dirname, 'js', 'warbird-db.js'), 'utf8'),
         fs.readFileSync(path.join(__dirname, 'js', 'aircraft.js'), 'utf8'),
         fs.readFileSync(path.join(__dirname, 'js', 'chassis.js'), 'utf8'),
+        fs.readFileSync(path.join(__dirname, 'js', 'radar-sidebar.js'), 'utf8'),
         fs.readFileSync(path.join(__dirname, 'js', 'radar-scope.js'), 'utf8'),
         fs.readFileSync(path.join(__dirname, 'js', 'ingestion.js'), 'utf8'),
         fs.readFileSync(path.join(__dirname, 'js', 'audio-engine.js'), 'utf8'),

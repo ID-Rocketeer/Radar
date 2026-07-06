@@ -71,6 +71,8 @@ let sweepMarker; // Reference to rotating sweep center marker
 let rangeRings = [];
 var activeAircraft = {}; // Holds aircraft metadata and map instances
 var radarScope;
+var radarSidebar;
+var debugModalOpen = false;
 let selectedHex = null;
 var trackedHex = null; // Currently tracked aircraft HEX address (Easter Egg)
 var hexClickCount = 0; // Click counter for gesture activation
@@ -91,6 +93,7 @@ var radarChassis = null; // Global instance of RadarChassis
 // Audio system states
 var audioCtx = null;
 var masterGain = null;
+var spatialAudioConsole = null;
 var audioEnabled = false;
 var rumblePanner = null; // Global reference to animate rotating 3D panner
 var audioSources = []; // Keeps track of active oscillators, buffer sources, and LFOs
@@ -138,37 +141,7 @@ function updateAircraftBearingIndex(hex, oldBearing, newBearing) {
 let sweepBatchSectorSize = 1; // Sector size in degrees (calculated dynamically based on aircraft count)
 let lastCheckedAngle = 0; // Last angle where sweep checks were run
 
-// SVG silhouettes for different aircraft classifications (optimized for 24x24 viewBox)
-var AIRCRAFT_ICONS = {
-    // Standard commercial airliner/medium-heavy jet
-    jet: 'M21,16V14L13,9V3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z',
-    // Sleek delta-wing military fighter jet
-    fighter: 'M12,2L14.5,10L22,12.5L14.5,14L13.5,19.5L15.5,21.5L12,21L8.5,21.5L10.5,19.5L9.5,14L2,12.5L9.5,10Z',
-    // Light general aviation/propeller airplane (wide straight wings)
-    light: 'M12,2A1,1 0 0,0 11,3V8.5L1,9.5V11.5L11,10.5V19L7.5,21.5V22.5L12,22L16.5,22.5V21.5L13,19V10.5L23,11.5V9.5L13,8.5V3A1,1 0 0,0 12,2Z',
-    // Helicopter top-down view (rotors & tail spinner)
-    helicopter: 'M12,6C13.7,6 14.8,7.5 14.8,10C14.8,12 13.5,14 12.8,16H11.2C10.5,14 9.2,12 9.2,10C9.2,7.5 10.3,6 12,6ZM2.7,3.3L20.7,21.3L21.3,20.7L3.3,2.7ZM20.7,2.7L2.7,20.7L3.3,21.3L21.3,3.3ZM12,9.8A1.2,1.2 0 1,1 12,12.2A1.2,1.2 0 1,1 12,9.8ZM11.6,16H12.4V22H11.6ZM9,19.7H15V20.3H9ZM9.7,19H10.3V23H9.7ZM10.3,21.2H11.6V21.8H10.3',
-    // Class B Glider/Sailplane (very high-aspect long wings)
-    glider: 'M12,2L13,8L23,9L23,10L13,10L12,22L11,22L11,10L1,10L1,9L11,8Z',
-    // Class B Lighter-Than-Air (weather/hot-air balloon with gradual, continuous bottom taper)
-    balloon: 'M 12,2 C 7,2 5.5,4.5 5.5,8 C 5.5,11.5 8.5,14.5 10,17 L 11,18.5 L 13,18.5 L 14,17 C 15.5,14.5 18.5,11.5 18.5,8 C 18.5,4.5 17,2 12,2 Z M 10,20.5 L 14,20.5 L 14,22.5 L 10,22.5 Z',
-    // Class B Parachutist (dome canopy, thick outer V-shrouds, and distinct jumper blip)
-    parachute: 'M 5,9 C 5,4 8,2 12,2 C 16,2 19,4 19,9 Z M 5,8.5 L 7,8.5 L 12.5,17 L 10.5,17 Z M 19,8.5 L 17,8.5 L 11.5,17 L 13.5,17 Z M 10,18 L 14,18 L 14,22 L 10,22 Z',
-    // Class B Ultralight (delta-wing with suspended trike frame pod)
-    ultralight: 'M12,2L23,12L14,11L13,20L11,20L10,11L1,12Z',
-    // Class B UAV/Drone (bold quadcopter silhouette with smooth curved rotors)
-    drone: 'M12,9L6,3C4.5,1.5 1.5,4.5 3,6L9,12L3,18C1.5,19.5 4.5,22.5 6,21L12,15L18,21C19.5,22.5 22.5,19.5 21,18L15,12L21,6C22.5,4.5 19.5,1.5 18,3L12,9Z',
-    // Class B Space Vehicle (upright Mercury capsule pointing straight up at 0 degrees)
-    space_vehicle: 'M6,18C6,19.5 18,19.5 18,18L14,8L13,8L13,2L11,2L11,8L10,8Z',
-    // Active Warbird WWII Bomber (four-engine heavy bomber with engine nacelles)
-    warbird_bomber: 'M12,2 C13,2 13.5,4 13.5,7 L14,7 L14,6 L15,6 L15,7 L17,7.5 L17,6.5 L18,6.5 L18,9 L23.5,9.5 L23.5,12.5 L13.5,14.5 L13.5,20 L17,21.5 L17,22.5 L12,22 L7,22.5 L7,21.5 L10.5,20 L10.5,14.5 L0.5,12.5 L0.5,9.5 L6,9 L6,6.5 L7,6.5 L7,7.5 L9,7 L9,6 L10,6 L10,7 L10.5,7 C10.5,4 11,2 12,2 Z',
-    // Active Warbird WWII Fighter/Attack/Pursuit (classic piston fighter with elliptical Spitfire-style wings)
-    warbird_fighter: 'M12,4 C12.5,4 13,5.5 13,8.5 L20.5,10.5 L20.5,12.5 L13,12.5 L13,17 L15,18.5 L15,19.5 L12,19 L9,19.5 L9,18.5 L11,17 L11,12.5 L3.5,12.5 L3.5,10.5 L11,8.5 C11,5.5 11.5,4 12,4 Z',
-    // Active Warbird WWII Transport (classic twin-engine propeller transport/C-47 Goony Bird)
-    warbird_transport: 'M12,2 C12.5,2 13,4 13,9 L14.5,9 L14.5,8 L15.5,8 L15.5,10 L23.5,12.5 L23.5,14 L13,14 L13,20 L16.5,21.5 L16.5,22.5 L12,22 L7.5,22.5 L7.5,21.5 L11,20 L11,14 L0.5,14 L0.5,12.5 L8.5,10 L8.5,8 L9.5,8 L9.5,9 L11,9 C11,4 11.5,2 12,2 Z'
-};
-
-// Note: WARBIRD_TYPE_CODES, isWarbird, isActiveWarbird, isClassB, getSpecialBSubtype, getWarbirdSubtype, and getAircraftIconType have been moved to js/warbird-db.js and js/aircraft.js respectively.
+// AIRCRAFT_ICONS has been moved to js/aircraft.js
 
 /* ==========================================================================
    INITIALIZATION
@@ -221,6 +194,14 @@ function startPolling() {
             (data, error) => {
                 if (error) {
                     sweepActive = false;
+                    const debugModal = document.getElementById('debug-modal');
+                    if (debugModal && !debugModalOpen && document.body.classList.contains('debug-enabled')) {
+                        populateDebugModalLogTable();
+                        debugModal.style.display = 'flex';
+                        void debugModal.offsetWidth;
+                        debugModal.classList.add('active');
+                        debugModalOpen = true;
+                    }
                     return;
                 }
                 if (data) {
@@ -242,12 +223,15 @@ function stopPolling() {
 
 
 function initializeRadarSystem() {
+    spatialAudioConsole = new SpatialAudioConsole();
+    window.spatialAudioConsole = spatialAudioConsole;
     ingestionService = new IngestionService();
     radarChassis = new RadarChassis({
         isWarbirdModeActive: () => warbirdModeActive,
         setWarbirdModeActive: (val) => { warbirdModeActive = val; },
         refreshWarbirdStyling: refreshWarbirdStyling
     });
+    radarSidebar = new RadarSidebar('target-list', 'telemetry-display', 'target-count');
     radarScope = new RadarScope('map', { homeLat: HOME_LAT, homeLon: HOME_LON, rangeNm: RANGE_NM });
     radarScope.onCenterChanged = (lat, lon) => {
         HOME_LAT = lat;
@@ -284,6 +268,7 @@ function initializeRadarSystem() {
     };
     initMap();
     initControls();
+    initDebugModal();
     // Restore CodeRed pilot light if mode was persisted across page reload
     if (warbirdModeActive) {
         const pilotLight = document.getElementById('codered-light');
@@ -421,6 +406,11 @@ async function getIPLocation() {
 }
 
 async function autoDetectLocationAndInit() {
+    if (typeof document !== 'undefined' && document.body) {
+        if (urlParams.get('debug') === '1') {
+            document.body.classList.add('debug-enabled');
+        }
+    }
     const hasLat = urlParams.has('lat') || urlParams.has('latitude');
     const hasLon = urlParams.has('long') || urlParams.has('longitude') || urlParams.has('lon') || urlParams.has('lng');
 
@@ -1151,8 +1141,8 @@ function triggerAircraftSweep(hex) {
     }
 
     // Refresh telemetry values in the sidebar list for this plane only if they changed to prevent layout thrashing
-    if (radarScope && radarScope.sidebar) {
-        radarScope.sidebar.updateRow(ac);
+    if (radarSidebar) {
+        radarSidebar.updateRow(ac);
     }
 
     return needsListUpdate;
@@ -1207,16 +1197,10 @@ function processAPIResponse(data) {
         const callsign = escapeHtml(rawCallsign);
         const isOnGround = rawAc.alt_baro === 'ground' || rawAc.alt_geom === 'ground' || rawAc.ground === true || rawAc.ground === 1;
         const alt = isOnGround ? 0 : Number(rawAc.alt_baro || rawAc.alt_geom || 0);
-        const speed = Number(rawAc.gs || rawAc.ias || rawAc.tas || 0);
-        const track = Number(rawAc.track || 0);
-        const seen = Number(rawAc.seen || 0);
-        
-        // Classify military targets: standard 'mil' flag or Category D/Military type flags
-        const dbFlagsVal = rawAc.dbFlags !== undefined ? rawAc.dbFlags : rawAc.dbflags;
-        const isMil = !!(rawAc.mil === 1 || rawAc.mil === true || (dbFlagsVal & 1) === 1);
+        rawAc.dist = calcDistance(HOME_LAT, HOME_LON, lat, lon);
+        if (rawAc.dist > RANGE_NM) return;
 
-        const currentDistance = calcDistance(HOME_LAT, HOME_LON, lat, lon);
-        if (currentDistance > RANGE_NM) return;
+        rawAc.bearing = calcBearing(lat, lon);
 
         // If aircraft is already tracked in local state
         if (activeAircraft[cleanHex]) {
@@ -1240,8 +1224,7 @@ function processAPIResponse(data) {
 
             // Buffer the coordinates: do not move the plane until the sweep line passes
             const oldActiveBearing = ac.pendingUpdate ? ac.pendingUpdate.bearing : ac.bearing;
-            const newActiveBearing = calcBearing(lat, lon);
-            updateAircraftBearingIndex(cleanHex, oldActiveBearing, newActiveBearing);
+            updateAircraftBearingIndex(cleanHex, oldActiveBearing, rawAc.bearing);
 
             ac.update(rawAc);
         } else {
@@ -1333,9 +1316,9 @@ function updateTargetList() {
         return a.dist - b.dist;
     });
 
-    if (radarScope && radarScope.sidebar) {
-        radarScope.sidebar.updateCount(filteredAc.length);
-        radarScope.sidebar.renderList(filteredAc, selectedHex, classBEnabled, selectAircraft);
+    if (radarSidebar) {
+        radarSidebar.updateCount(filteredAc.length);
+        radarSidebar.renderList(filteredAc, selectedHex, classBEnabled, selectAircraft);
     }
 }
 
@@ -1462,8 +1445,8 @@ function renderTelemetryDetails(hex) {
 
     const isTracked = trackedHex === ac.hex;
 
-    if (radarScope && radarScope.sidebar) {
-        radarScope.sidebar.renderDetails(ac, isTracked, classBEnabled, (clickedAc) => {
+    if (radarSidebar) {
+        radarSidebar.renderDetails(ac, isTracked, classBEnabled, (clickedAc) => {
             const now = Date.now();
             if (trackedHex === clickedAc.hex) {
                 // Single tap is sufficient to deactivate
@@ -1492,8 +1475,8 @@ function renderTelemetryDetails(hex) {
 }
 
 function resetTelemetryDisplay() {
-    if (radarScope && radarScope.sidebar) {
-        radarScope.sidebar.resetDetails();
+    if (radarSidebar) {
+        radarSidebar.resetDetails();
     }
 }
 
@@ -1502,46 +1485,7 @@ function resetTelemetryDisplay() {
    ========================================================================== */
 
 // Haversine formula to compute distance in Nautical Miles
-function calcDistance(lat1, lon1, lat2, lon2) {
-    const R = 3443.918; // Earth radius in NM (matching Leaflet's WGS84 radius of 6378137 meters)
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-}
-
-// Calculate bearing from home to target (0 is North, clockwise)
-function calcBearing(lat, lon) {
-    const scaleLon = Math.cos(HOME_LAT * Math.PI / 180);
-    const dx = (lon - HOME_LON) * scaleLon;
-    const dy = lat - HOME_LAT;
-    return (90 - Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
-}
-
-// Escape HTML tags to prevent XSS injection from API payload inputs
-function escapeHtml(str) {
-    if (typeof str !== 'string') return '';
-    return str.replace(/[&<>"'/`]/g, function (s) {
-        return {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#x27;',
-            '/': '&#x2F;',
-            '`': '&#x60;'
-        }[s];
-    });
-}
-
-// Sanitize hex IDs for valid HTML attribute syntax and clean selectors (e.g. converting "~" to "_")
-function sanitizeId(str) {
-    if (typeof str !== 'string') return '';
-    return str.replace(/[^a-zA-Z0-9_-]/g, '_');
-}
+// Math and string utility functions are consolidated in js/utils.js
 
 
 
@@ -1599,4 +1543,83 @@ function refreshWarbirdStyling() {
     }
 
     updateTargetList();
+}
+
+function populateDebugModalLogTable() {
+    const tbody = document.getElementById('debug-log-body');
+    if (!tbody || !ingestionService) return;
+
+    const history = ingestionService.pollHistory || [];
+    if (history.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--phosphor-green);">NO LOG EVENTS CAPTURED YET</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = history.slice().reverse().map(entry => {
+        let statusClass = 'status-online';
+        if (entry.status === 'LINK ERROR') statusClass = 'status-error';
+        else if (entry.status === 'SCANNING...') statusClass = 'status-scanning';
+
+        const rawTimestamp = entry.timestamp.replace('Z', '').replace('T', ' ');
+
+        return `
+            <tr>
+                <td>${escapeHtml(rawTimestamp)}</td>
+                <td style="word-break: break-all; font-family: monospace; font-size: 0.75rem;">${escapeHtml(entry.source || '--')}</td>
+                <td class="${statusClass}">${escapeHtml(entry.status)}</td>
+                <td>${entry.duration ? entry.duration + ' ms' : '--'}</td>
+                <td>${entry.activeCount !== undefined ? entry.activeCount : '--'}</td>
+                <td>${escapeHtml(entry.statusText)}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function initDebugModal() {
+    const debugModal = document.getElementById('debug-modal');
+    const debugCloseBtn = document.getElementById('debug-close');
+    const statusPanel = document.querySelector('.system-status');
+
+    if (debugModal && debugCloseBtn) {
+        const closeDebugModal = () => {
+            debugModal.classList.remove('active');
+            setTimeout(() => {
+                if (!debugModal.classList.contains('active')) {
+                    debugModal.style.display = 'none';
+                }
+            }, 300);
+            debugModalOpen = false;
+        };
+
+        debugCloseBtn.addEventListener('click', closeDebugModal);
+
+        debugModal.addEventListener('click', (e) => {
+            if (e.target === debugModal) {
+                closeDebugModal();
+            }
+        });
+    }
+
+    if (statusPanel) {
+        statusPanel.addEventListener('click', () => {
+            if (!document.body.classList.contains('debug-enabled')) return;
+            if (debugModal) {
+                if (!debugModalOpen) {
+                    populateDebugModalLogTable();
+                    debugModal.style.display = 'flex';
+                    void debugModal.offsetWidth;
+                    debugModal.classList.add('active');
+                    debugModalOpen = true;
+                } else {
+                    debugModal.classList.remove('active');
+                    setTimeout(() => {
+                        if (!debugModal.classList.contains('active')) {
+                            debugModal.style.display = 'none';
+                        }
+                    }, 300);
+                    debugModalOpen = false;
+                }
+            }
+        });
+    }
 }

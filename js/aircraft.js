@@ -1,3 +1,33 @@
+// SVG silhouettes for different aircraft classifications (optimized for 24x24 viewBox)
+var AIRCRAFT_ICONS = {
+    // Standard commercial airliner/medium-heavy jet
+    jet: 'M21,16V14L13,9V3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z',
+    // Sleek delta-wing military fighter jet
+    fighter: 'M12,2L14.5,10L22,12.5L14.5,14L13.5,19.5L15.5,21.5L12,21L8.5,21.5L10.5,19.5L9.5,14L2,12.5L9.5,10Z',
+    // Light general aviation/propeller airplane (wide straight wings)
+    light: 'M12,2A1,1 0 0,0 11,3V8.5L1,9.5V11.5L11,10.5V19L7.5,21.5V22.5L12,22L16.5,22.5V21.5L13,19V10.5L23,11.5V9.5L13,8.5V3A1,1 0 0,0 12,2Z',
+    // Helicopter top-down view (rotors & tail spinner)
+    helicopter: 'M12,6C13.7,6 14.8,7.5 14.8,10C14.8,12 13.5,14 12.8,16H11.2C10.5,14 9.2,12 9.2,10C9.2,7.5 10.3,6 12,6ZM2.7,3.3L20.7,21.3L21.3,20.7L3.3,2.7ZM20.7,2.7L2.7,20.7L3.3,21.3L21.3,3.3ZM12,9.8A1.2,1.2 0 1,1 12,12.2A1.2,1.2 0 1,1 12,9.8ZM11.6,16H12.4V22H11.6ZM9,19.7H15V20.3H9ZM9.7,19H10.3V23H9.7ZM10.3,21.2H11.6V21.8H10.3',
+    // Class B Glider/Sailplane (very high-aspect long wings)
+    glider: 'M12,2L13,8L23,9L23,10L13,10L12,22L11,22L11,10L1,10L1,9L11,8Z',
+    // Class B Lighter-Than-Air (weather/hot-air balloon with gradual, continuous bottom taper)
+    balloon: 'M 12,2 C 7,2 5.5,4.5 5.5,8 C 5.5,11.5 8.5,14.5 10,17 L 11,18.5 L 13,18.5 L 14,17 C 15.5,14.5 18.5,11.5 18.5,8 C 18.5,4.5 17,2 12,2 Z M 10,20.5 L 14,20.5 L 14,22.5 L 10,22.5 Z',
+    // Class B Parachutist (dome canopy, thick outer V-shrouds, and distinct jumper blip)
+    parachute: 'M 5,9 C 5,4 8,2 12,2 C 16,2 19,4 19,9 Z M 5,8.5 L 7,8.5 L 12.5,17 L 10.5,17 Z M 19,8.5 L 17,8.5 L 11.5,17 L 13.5,17 Z M 10,18 L 14,18 L 14,22 L 10,22 Z',
+    // Class B Ultralight (delta-wing with suspended trike frame pod)
+    ultralight: 'M12,2L23,12L14,11L13,20L11,20L10,11L1,12Z',
+    // Class B UAV/Drone (bold quadcopter silhouette with smooth curved rotors)
+    drone: 'M12,9L6,3C4.5,1.5 1.5,4.5 3,6L9,12L3,18C1.5,19.5 4.5,22.5 6,21L12,15L18,21C19.5,22.5 22.5,19.5 21,18L15,12L21,6C22.5,4.5 19.5,1.5 18,3L12,9Z',
+    // Class B Space Vehicle (upright Mercury capsule pointing straight up at 0 degrees)
+    space_vehicle: 'M6,18C6,19.5 18,19.5 18,18L14,8L13,8L13,2L11,2L11,8L10,8Z',
+    // Active Warbird WWII Bomber (four-engine heavy bomber with engine nacelles)
+    warbird_bomber: 'M12,2 C13,2 13.5,4 13.5,7 L14,7 L14,6 L15,6 L15,7 L17,7.5 L17,6.5 L18,6.5 L18,9 L23.5,9.5 L23.5,12.5 L13.5,14.5 L13.5,20 L17,21.5 L17,22.5 L12,22 L7,22.5 L7,21.5 L10.5,20 L10.5,14.5 L0.5,12.5 L0.5,9.5 L6,9 L6,6.5 L7,6.5 L7,7.5 L9,7 L9,6 L10,6 L10,7 L10.5,7 C10.5,4 11,2 12,2 Z',
+    // Active Warbird WWII Fighter/Attack/Pursuit (classic piston fighter with elliptical Spitfire-style wings)
+    warbird_fighter: 'M12,4 C12.5,4 13,5.5 13,8.5 L20.5,10.5 L20.5,12.5 L13,12.5 L13,17 L15,18.5 L15,19.5 L12,19 L9,19.5 L9,18.5 L11,17 L11,12.5 L3.5,12.5 L3.5,10.5 L11,8.5 C11,5.5 11.5,4 12,4 Z',
+    // Active Warbird WWII Transport (classic twin-engine propeller transport/C-47 Goony Bird)
+    warbird_transport: 'M12,2 C12.5,2 13,4 13,9 L14.5,9 L14.5,8 L15.5,8 L15.5,10 L23.5,12.5 L23.5,14 L13,14 L13,20 L16.5,21.5 L16.5,22.5 L12,22 L7.5,22.5 L7.5,21.5 L11,20 L11,14 L0.5,14 L0.5,12.5 L8.5,10 L8.5,8 L9.5,8 L9.5,9 L11,9 C11,4 11.5,2 12,2 Z'
+};
+
 var Aircraft = class Aircraft {
     constructor(hex, rawAc) {
         this.hex = hex;
@@ -50,8 +80,8 @@ var Aircraft = class Aircraft {
         // Precompute bearing and distance relative to current station
         const hLat = typeof HOME_LAT !== 'undefined' ? HOME_LAT : 0;
         const hLon = typeof HOME_LON !== 'undefined' ? HOME_LON : 0;
-        this.bearing = rawAc.bearing !== undefined ? rawAc.bearing : (typeof calcBearing === 'function' ? calcBearing(this.lat, this.lon) : 0);
-        this.dist = rawAc.dist !== undefined ? rawAc.dist : (typeof calcDistance === 'function' ? calcDistance(hLat, hLon, this.lat, this.lon) : 0);
+        this.bearing = rawAc.bearing !== undefined ? rawAc.bearing : calcBearing(this.lat, this.lon);
+        this.dist = rawAc.dist !== undefined ? rawAc.dist : calcDistance(hLat, hLon, this.lat, this.lon);
 
         // Statically determine if aircraft is commercial
         const isAirline = /^[A-Z]{3}\d/.test(this.callsign);
@@ -226,8 +256,8 @@ var Aircraft = class Aircraft {
 
         const hLat = typeof HOME_LAT !== 'undefined' ? HOME_LAT : 0;
         const hLon = typeof HOME_LON !== 'undefined' ? HOME_LON : 0;
-        const bearing = rawAc.bearing !== undefined ? rawAc.bearing : (typeof calcBearing === 'function' ? calcBearing(lat, lon) : 0);
-        const dist = rawAc.dist !== undefined ? rawAc.dist : (typeof calcDistance === 'function' ? calcDistance(hLat, hLon, lat, lon) : 0);
+        const bearing = rawAc.bearing !== undefined ? rawAc.bearing : calcBearing(lat, lon);
+        const dist = rawAc.dist !== undefined ? rawAc.dist : calcDistance(hLat, hLon, lat, lon);
 
         this.pendingUpdate = {
             lat: lat,
