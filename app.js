@@ -782,6 +782,17 @@ function initControls() {
                 if (addressSearchStagingMarker && map) {
                     addressSearchStagingMarker.setLatLng([lat, lon]);
                 }
+            },
+            onExitSelectionMode: () => {
+                if (addressSearchStagingMarker && map) {
+                    map.removeLayer(addressSearchStagingMarker);
+                    addressSearchStagingMarker = null;
+                }
+                const previewInfo = document.getElementById('addr-preview-info');
+                if (previewInfo) {
+                    previewInfo.style.display = 'none';
+                    previewInfo.innerText = '';
+                }
             }
         });
     }

@@ -370,6 +370,7 @@ var RadarScope = class RadarScope {
         if (this.map.scrollWheelZoom) {
             this.map.scrollWheelZoom.disable();
             this.map.options.scrollWheelZoom = 'center';
+            this.map.options.touchZoom = 'center';
             this.map.scrollWheelZoom.enable();
         }
 
@@ -404,34 +405,19 @@ var RadarScope = class RadarScope {
         this.isZooming = false;
 
         // Unbind any previous selection listeners to prevent leaks if enterSelectionMode is called repeatedly
-        if (this._boundSelectionMapChange) {
-            this.map.off('move drag', this._boundSelectionMapChange);
+        if (this._boundSelectionMapDrag) {
+            this.map.off('drag moveend', this._boundSelectionMapDrag);
         }
-        if (this._boundSelectionZoomStart) {
-            this.map.off('zoomstart', this._boundSelectionZoomStart);
-        }
-        if (this._boundSelectionZoomEnd) {
-            this.map.off('zoomend', this._boundSelectionZoomEnd);
+        if (this._boundSelectionMapZoom) {
+            this.map.off('zoomend', this._boundSelectionMapZoom);
         }
 
-        // Bind Leaflet map drag/zoom events and lock zoom to tempLat/tempLon center
-        this._boundSelectionMapChange = () => this.handleSelectionMapChange(callbacks);
-        this._boundSelectionZoomStart = () => {
-            this.isZooming = true;
-        };
-        this._boundSelectionZoomEnd = () => {
-            if (!this.isSelectionMode) return;
-            this.isProgrammaticChange = true;
-            this.map.setView([this.tempLat, this.tempLon], this.map.getZoom(), { animate: false });
-            this.updateTempRangeFromMap(callbacks);
-            setTimeout(() => {
-                this.isZooming = false;
-                this.isProgrammaticChange = false;
-            }, 50);
-        };
-        this.map.on('move drag', this._boundSelectionMapChange);
-        this.map.on('zoomstart', this._boundSelectionZoomStart);
-        this.map.on('zoomend', this._boundSelectionZoomEnd);
+        // Bind Leaflet map drag/zoom events
+        this._boundSelectionMapDrag = () => this.handleSelectionMapDrag(callbacks);
+        this._boundSelectionMapZoom = () => this.handleSelectionMapZoom(callbacks);
+
+        this.map.on('drag moveend', this._boundSelectionMapDrag);
+        this.map.on('zoomend', this._boundSelectionMapZoom);
 
         let programmaticTimer = null;
         const clearProgrammatic = () => {
@@ -465,23 +451,21 @@ var RadarScope = class RadarScope {
         }
     }
 
-    handleSelectionMapChange(callbacks) {
-        if (!this.isSelectionMode || this.isProgrammaticChange || this.isZooming) return;
+    handleSelectionMapDrag(callbacks) {
+        if (!this.isSelectionMode || this.isProgrammaticChange) return;
 
         const center = this.map.getCenter();
         this.tempLat = center.lat;
         this.tempLon = center.lng;
 
         if (callbacks.updateStagingMarkerPosition) {
-            callbacks.updateStagingMarkerPosition(center.lat, center.lng);
+            callbacks.updateStagingMarkerPosition(this.tempLat, this.tempLon);
         }
 
         this.updateTempRangeFromMap(callbacks);
 
-        // Update sidebar UI text readouts in real-time (but don't overwrite user's typing active state)
         const latInput = document.getElementById('val-lat');
         const lonInput = document.getElementById('val-lon');
-        const rangeInput = document.getElementById('val-range');
 
         if (latInput && document.activeElement !== latInput) {
             latInput.value = this.tempLat.toFixed(5);
@@ -489,44 +473,66 @@ var RadarScope = class RadarScope {
         if (lonInput && document.activeElement !== lonInput) {
             lonInput.value = this.tempLon.toFixed(5);
         }
-        if (rangeInput && document.activeElement !== rangeInput) {
-            rangeInput.value = displayedRange < 10 ? displayedRange.toFixed(3) : displayedRange.toFixed(1);
-        }
 
-        // Rescale and center Leaflet range rings around the new target center
         const ringFactors = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
         this.rangeRings.forEach((ring, idx) => {
             const factor = ringFactors[idx] || 1.0;
             ring.setLatLng(center);
             ring.setRadius(factor * this.tempRange * 1852);
-            
-            // Force rings to be visible (in case they were culled at closer zooms previously)
             if (!this.map.hasLayer(ring)) {
                 ring.addTo(this.map);
             }
         });
     }
 
+    handleSelectionMapZoom(callbacks) {
+        if (!this.isSelectionMode || this.isProgrammaticChange) return;
+
+        this.isProgrammaticChange = true;
+        this.map.setView([this.tempLat, this.tempLon], this.map.getZoom(), { animate: false });
+
+        if (callbacks.updateStagingMarkerPosition) {
+            callbacks.updateStagingMarkerPosition(this.tempLat, this.tempLon);
+        }
+
+        this.updateTempRangeFromMap(callbacks);
+
+        const ringFactors = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
+        this.rangeRings.forEach((ring, idx) => {
+            const factor = ringFactors[idx] || 1.0;
+            ring.setLatLng([this.tempLat, this.tempLon]);
+            ring.setRadius(factor * this.tempRange * 1852);
+            if (!this.map.hasLayer(ring)) {
+                ring.addTo(this.map);
+            }
+        });
+
+        setTimeout(() => {
+            this.isProgrammaticChange = false;
+        }, 50);
+    }
+
     exitSelectionMode(confirmChanges, callbacks) {
         this.isSelectionMode = false;
 
+        if (callbacks && typeof callbacks.onExitSelectionMode === 'function') {
+            callbacks.onExitSelectionMode();
+        }
+
         // Unbind Leaflet events
-        if (this._boundSelectionMapChange) {
-            this.map.off('move drag', this._boundSelectionMapChange);
+        if (this._boundSelectionMapDrag) {
+            this.map.off('drag moveend', this._boundSelectionMapDrag);
         }
-        if (this._boundSelectionZoomStart) {
-            this.map.off('zoomstart', this._boundSelectionZoomStart);
+        if (this._boundSelectionMapZoom) {
+            this.map.off('zoomend', this._boundSelectionMapZoom);
         }
-        if (this._boundSelectionZoomEnd) {
-            this.map.off('zoomend', this._boundSelectionZoomEnd);
-        }
-        this.isZooming = false;
 
         // Disable map dragging and restore default scroll wheel zoom
         this.map.dragging.disable();
         if (this.map.scrollWheelZoom) {
             this.map.scrollWheelZoom.disable();
-            this.map.options.scrollWheelZoom = true;
+            this.map.options.scrollWheelZoom = 'center';
+            this.map.options.touchZoom = 'center';
             this.map.scrollWheelZoom.enable();
         }
 

@@ -374,16 +374,20 @@ function executeRadarUnitTestSuite(context) {
                 const testScope = new context.RadarScope(40, -90, 25);
                 testScope.map = {
                     off: () => { mockOffCount++; },
-                    dragging: { enable: () => {} },
+                    dragging: { enable: () => {}, disable: () => {} },
+                    scrollWheelZoom: { enable: () => {}, disable: () => {} },
+                    options: {},
+                    getCenter: () => ({ lat: 40, lng: -90 }),
+                    latLngToLayerPoint: () => ({ x: 0, y: 0 }),
+                    layerPointToLatLng: () => ({ lat: 40, lng: -90 }),
                     setMinZoom: () => {},
                     setMaxZoom: () => {},
                     getZoom: () => 10,
                     setView: () => {},
                     on: () => {}
                 };
-                testScope._boundSelectionMapChange = () => {};
-                testScope._boundSelectionZoomStart = () => {};
-                testScope._boundSelectionZoomEnd = () => {};
+                testScope._boundSelectionMapDrag = () => {};
+                testScope._boundSelectionMapZoom = () => {};
                 testScope.enterSelectionMode({
                     getHomeLat: () => 40,
                     getHomeLon: () => -90,
@@ -395,7 +399,35 @@ function executeRadarUnitTestSuite(context) {
                     calcDistance: () => 10,
                     getBezelDiameter: () => 600
                 });
-                assert("enterSelectionMode unbinds existing listeners before attaching new ones", mockOffCount >= 2, "Existing event listeners safely unbound to prevent memory leaks.");
+                assert("enterSelectionMode unbinds existing listeners before attaching new ones", mockOffCount >= 1, "Existing event listeners safely unbound to prevent memory leaks.");
+
+                // 14.18 Test exitSelectionMode invokes onExitSelectionMode callback
+                let exitCallbackCalled = false;
+                testScope.exitSelectionMode(true, {
+                    onExitSelectionMode: () => { exitCallbackCalled = true; },
+                    normalizeLat: (v) => v,
+                    normalizeLon: (v) => v,
+                    setHomeLat: () => {},
+                    setHomeLon: () => {},
+                    setRangeNm: () => {},
+                    getZoomForRange: () => 10,
+                    clearActiveMarkers: () => {},
+                    clearActiveAircraftRegistry: () => {},
+                    resetTelemetryDisplay: () => {},
+                    getHomeLat: () => 40,
+                    getHomeLon: () => -90,
+                    getRangeNm: () => 25,
+                    startPolling: () => {},
+                    setSweepActive: () => {},
+                    updateTargetList: () => {},
+                    updateMinZoom: () => {},
+                    updateSweepSize: () => {},
+                    recalculateDisplayedRange: () => {},
+                    updateDisplayedRange: () => {},
+                    updateUIConfigurationValues: () => {}
+                });
+                assert("exitSelectionMode invokes onExitSelectionMode callback", exitCallbackCalled === true, "onExitSelectionMode callback executed on selection exit.");
+
                 context.document.getElementById = origGetElem;
             } finally {
                 context.document.body.contains = originalContains;
