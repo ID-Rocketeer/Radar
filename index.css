@@ -2916,3 +2916,103 @@ body {
     user-select: text !important;
     -webkit-user-select: text !important;
 }
+
+/* Location Search Panel & Staging Controls */
+.location-search-panel {
+    display: none;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+    width: 100%;
+}
+
+.location-search-panel.active {
+    display: grid !important;
+}
+
+.location-search-panel .addr-input {
+    grid-column: 1 !important;
+    width: 100% !important;
+    font-size: 0.8rem !important;
+    padding: 3px 6px !important;
+    background: rgba(0, 20, 5, 0.85) !important;
+    border: 1px solid rgba(0, 255, 85, 0.4) !important;
+    color: var(--phosphor-green-bright) !important;
+}
+
+.location-search-panel .btn-search-go {
+    grid-column: 2 !important;
+    color: var(--phosphor-green-bright) !important;
+    border-color: var(--phosphor-green-bright) !important;
+    font-weight: bold;
+    padding: 3px 12px !important;
+    min-width: 44px !important;
+}
+
+.location-search-panel .addr-preview-info {
+    grid-column: 1 / -1 !important;
+    font-size: 0.72rem;
+    color: #d4ff00;
+    text-shadow: 0 0 4px rgba(212, 255, 0, 0.4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: monospace;
+}
+
+.btn-search-cancel, .btn-cancel-loc {
+    color: #ffaa00 !important;
+    border-color: #ffaa00 !important;
+    font-weight: bold;
+    padding: 3px 8px !important;
+}
+
+.btn-confirm-loc {
+    color: var(--phosphor-green-bright) !important;
+    border-color: var(--phosphor-green-bright) !important;
+    font-weight: bold;
+    padding: 3px 8px !important;
+}
+
+/* Staging Target Crosshair Marker on Scope */
+.radar-staging-target {
+    pointer-events: none;
+}
+
+.radar-staging-crosshair {
+    width: 32px;
+    height: 32px;
+    border: 2px dashed #d4ff00;
+    border-radius: 50%;
+    position: relative;
+    animation: radar-staging-pulse 1.2s infinite alternate ease-in-out;
+    box-shadow: 0 0 10px rgba(212, 255, 0, 0.6);
+}
+
+.radar-staging-crosshair::before,
+.radar-staging-crosshair::after {
+    content: '';
+    position: absolute;
+    background: #d4ff00;
+}
+
+.radar-staging-crosshair::before {
+    top: 50%;
+    left: -6px;
+    right: -6px;
+    height: 1px;
+    transform: translateY(-50%);
+}
+
+.radar-staging-crosshair::after {
+    left: 50%;
+    top: -6px;
+    bottom: -6px;
+    width: 1px;
+    transform: translateX(-50%);
+}
+
+@keyframes radar-staging-pulse {
+    0% { transform: scale(0.9); opacity: 0.75; }
+    100% { transform: scale(1.15); opacity: 1; }
+}
+

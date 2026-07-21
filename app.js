@@ -56,7 +56,8 @@ if (isNaN(RANGE_NM)) {
 
 // Sync address bar URL with normalized coordinates on load
 try {
-    const initialNormalizedUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${Math.round(RANGE_NM)}`;
+    const formattedRng = RANGE_NM < 10 ? RANGE_NM.toFixed(3) : RANGE_NM.toFixed(1);
+    const initialNormalizedUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${formattedRng}`;
     window.history.replaceState({ path: initialNormalizedUrl }, '', initialNormalizedUrl);
 } catch (historyError) {
     console.warn("Silent fallback: window.history.replaceState is blocked in this browser context (e.g. file:/// URL).", historyError);
@@ -260,7 +261,8 @@ function initializeRadarSystem() {
 
         // Update URL parameters silently
         try {
-            const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${Math.round(RANGE_NM)}`;
+            const formattedRng = RANGE_NM < 10 ? RANGE_NM.toFixed(3) : RANGE_NM.toFixed(1);
+            const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${formattedRng}`;
             window.history.replaceState(null, '', newUrl);
         } catch (historyError) {
             console.warn("Silent fallback: window.history.replaceState is blocked in this browser context (e.g. file:/// URL).", historyError);
@@ -422,7 +424,8 @@ async function autoDetectLocationAndInit() {
             
             // Update URL silently to reflect IP location
             try {
-                const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${Math.round(RANGE_NM)}`;
+                const formattedRng = RANGE_NM < 10 ? RANGE_NM.toFixed(3) : RANGE_NM.toFixed(1);
+                const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${formattedRng}`;
                 window.history.replaceState(null, '', newUrl);
             } catch (historyError) {
                 console.warn("Silent fallback: window.history.replaceState is blocked in this browser context (e.g. file:/// URL).", historyError);
@@ -529,6 +532,8 @@ function initMap() {
    UI CONTROLS & LISTENERS
    ========================================================================== */
 function initControls() {
+    initAddressSearchControls();
+
     // Prevent long-press context menus across the entire application (bezel, sidebar, map, etc.)
     // We use the capturing phase (true) to intercept the event before Leaflet blocks propagation.
     window.addEventListener('contextmenu', (e) => e.preventDefault(), true);
@@ -772,7 +777,12 @@ function initControls() {
             normalizeLat: normalizeLat,
             normalizeLon: normalizeLon,
             calcDistance: calcDistance,
-            getIPLocation: getIPLocation
+            getIPLocation: getIPLocation,
+            updateStagingMarkerPosition: (lat, lon) => {
+                if (addressSearchStagingMarker && map) {
+                    addressSearchStagingMarker.setLatLng([lat, lon]);
+                }
+            }
         });
     }
 }
@@ -1236,11 +1246,16 @@ function processAPIResponse(data) {
         updateMarkerVisibility(cleanHex);
     });
 
-    // Flag aircraft that are no longer in range or not broadcasted by the API for removal
+    // Flag aircraft that are no longer broadcasted by the API or stale for removal
     Object.keys(activeAircraft).forEach(hex => {
         const ac = activeAircraft[hex];
-        if (!freshHexes.has(hex) || ac.seen > 60) {
-            ac.pendingRemoval = true;
+        if (freshHexes.has(hex)) {
+            ac.missedPolls = 0;
+        } else {
+            ac.missedPolls = (ac.missedPolls || 0) + 1;
+            if (ac.missedPolls >= 3 || ac.seen > 60) {
+                ac.pendingRemoval = true;
+            }
         }
     });
 
@@ -1623,3 +1638,604 @@ function initDebugModal() {
         });
     }
 }
+
+// ==========================================
+// ADDRESS SEARCH & 2-STAGE GEOCODING ENGINE
+// ==========================================
+let addressSearchStagingMarker = null;
+let revertHomeLat = null;
+let revertHomeLon = null;
+let stagedTargetLat = null;
+let stagedTargetLon = null;
+
+function matchesStreetKeyword(returnedName, searchKeyword) {
+    if (!returnedName || !searchKeyword) return false;
+    // Strip leading house numbers/digits from search keyword to match street name (e.g. "8008 Gato Lane" -> "Gato Lane")
+    const streetOnlyKeyword = searchKeyword.replace(/^\d+\s*/, '');
+    const normReturned = returnedName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normKeyword = (streetOnlyKeyword || searchKeyword).toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    return normReturned.includes(normKeyword) || normKeyword.includes(normReturned);
+}
+
+function getActiveViewCenter() {
+    if (radarScope && radarScope.isSelectionMode && typeof radarScope.tempLat === 'number' && typeof radarScope.tempLon === 'number') {
+        return { lat: radarScope.tempLat, lon: radarScope.tempLon };
+    }
+    if (map && typeof map.getCenter === 'function') {
+        const c = map.getCenter();
+        return { lat: c.lat, lon: c.lng };
+    }
+    return { lat: HOME_LAT, lon: HOME_LON };
+}
+
+const US_STATES = {
+    'ALABAMA': ['AL', 'ALABAMA'],
+    'ALASKA': ['AK', 'ALASKA'],
+    'ARIZONA': ['AZ', 'ARIZONA'],
+    'ARKANSAS': ['AR', 'ARKANSAS'],
+    'CALIFORNIA': ['CA', 'CALIFORNIA'],
+    'COLORADO': ['CO', 'COLORADO'],
+    'CONNECTICUT': ['CT', 'CONNECTICUT'],
+    'DELAWARE': ['DE', 'DELAWARE'],
+    'FLORIDA': ['FL', 'FLORIDA'],
+    'GEORGIA': ['GA', 'GEORGIA'],
+    'HAWAII': ['HI', 'HAWAII'],
+    'IDAHO': ['ID', 'IDAHO'],
+    'ILLINOIS': ['IL', 'ILLINOIS'],
+    'INDIANA': ['IN', 'INDIANA'],
+    'IOWA': ['IA', 'IOWA'],
+    'KANSAS': ['KS', 'KANSAS'],
+    'KENTUCKY': ['KY', 'KENTUCKY'],
+    'LOUISIANA': ['LA', 'LOUISIANA'],
+    'MAINE': ['ME', 'MAINE'],
+    'MARYLAND': ['MD', 'MARYLAND'],
+    'MASSACHUSETTS': ['MA', 'MASSACHUSETTS'],
+    'MICHIGAN': ['MI', 'MICHIGAN'],
+    'MINNESOTA': ['MN', 'MINNESOTA'],
+    'MISSISSIPPI': ['MS', 'MISSISSIPPI'],
+    'MISSOURI': ['MO', 'MISSOURI'],
+    'MONTANA': ['MT', 'MONTANA'],
+    'NEBRASKA': ['NE', 'NEBRASKA'],
+    'NEVADA': ['NV', 'NEVADA'],
+    'NEW HAMPSHIRE': ['NH', 'NEW HAMPSHIRE'],
+    'NEW JERSEY': ['NJ', 'NEW JERSEY'],
+    'NEW MEXICO': ['NM', 'NEW MEXICO'],
+    'NEW YORK': ['NY', 'NEW YORK'],
+    'NORTH CAROLINA': ['NC', 'NORTH CAROLINA'],
+    'NORTH DAKOTA': ['ND', 'NORTH DAKOTA'],
+    'OHIO': ['OH', 'OHIO'],
+    'OKLAHOMA': ['OK', 'OKLAHOMA'],
+    'OREGON': ['OR', 'OREGON'],
+    'PENNSYLVANIA': ['PA', 'PENNSYLVANIA'],
+    'RHODE ISLAND': ['RI', 'RHODE ISLAND'],
+    'SOUTH CAROLINA': ['SC', 'SOUTH CAROLINA'],
+    'SOUTH DAKOTA': ['SD', 'SOUTH DAKOTA'],
+    'TENNESSEE': ['TN', 'TENNESSEE'],
+    'TEXAS': ['TX', 'TEXAS'],
+    'UTAH': ['UT', 'UTAH'],
+    'VERMONT': ['VT', 'VERMONT'],
+    'VIRGINIA': ['VA', 'VIRGINIA'],
+    'WASHINGTON': ['WA', 'WASHINGTON'],
+    'WEST VIRGINIA': ['WV', 'WEST VIRGINIA'],
+    'WISCONSIN': ['WI', 'WISCONSIN'],
+    'WYOMING': ['WY', 'WYOMING']
+};
+
+const US_STATE_REGEXES = {};
+for (const [stateName, tokens] of Object.entries(US_STATES)) {
+    US_STATE_REGEXES[stateName] = tokens.map(token => new RegExp('\\b' + token + '\\b', 'i'));
+}
+
+function extractQueryState(queryText) {
+    if (!queryText) return null;
+    const upper = queryText.toUpperCase();
+    for (const [stateName, regexList] of Object.entries(US_STATE_REGEXES)) {
+        for (const regex of regexList) {
+            if (regex.test(upper)) {
+                return stateName;
+            }
+        }
+    }
+    return null;
+}
+
+function matchesRequestedState(candidateName, requestedState) {
+    if (!requestedState) return true;
+    if (!candidateName) return false;
+    const regexList = US_STATE_REGEXES[requestedState];
+    if (!regexList) return true;
+    const upperCand = candidateName.toUpperCase();
+    return regexList.some(regex => regex.test(upperCand));
+}
+
+// 1. Esri ArcGIS World Geocoder (for exact house numbers, street addresses, and global parcels)
+async function fetchArcGISGeocode(queryText, biasLat = null, biasLon = null) {
+    const houseMatch = queryText.trim().match(/^(\d+)/);
+    const hasHouseNumber = !!houseMatch;
+    const reqHouseNumber = houseMatch ? houseMatch[1] : null;
+
+    async function queryArcGIS(lat, lon) {
+        let url = `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?SingleLine=${encodeURIComponent(queryText)}&f=json&outFields=Addr_type,Match_addr,LongLabel,AddNum,StName,Region,RegionAbbr,City&maxLocations=15`;
+        if (typeof lat === 'number' && typeof lon === 'number') {
+            url += `&location=${lon},${lat}`;
+        }
+        console.log("  ↳ Requesting Esri ArcGIS World Geocoder:", url);
+        try {
+            const res = await fetch(url);
+            if (!res.ok) return null;
+            const data = await res.json();
+            console.log("  ↳ ArcGIS Response Data:", data);
+            if (data && data.candidates && data.candidates.length > 0) {
+                let candidates = data.candidates;
+
+                if (hasHouseNumber && reqHouseNumber) {
+                    candidates = candidates.filter(c => {
+                        const t = c.attributes ? c.attributes.Addr_type : '';
+                        if (t === 'Locality' || t === 'Subregion' || t === 'StreetName' || t === 'Postal') return false;
+                        const addNum = c.attributes ? (c.attributes.AddNum || c.attributes.HouseNum) : '';
+                        if (addNum && addNum.trim() === reqHouseNumber.trim()) return true;
+                        const label = (c.attributes ? (c.attributes.LongLabel || c.attributes.Match_addr) : c.address) || '';
+                        return verifyHouseNumber({ display_name: label, address: { house_number: addNum } }, reqHouseNumber);
+                    });
+                }
+
+                const cleanStreetQuery = queryText.replace(/^\d+\s*/, '').split(',')[0].trim();
+                if (cleanStreetQuery) {
+                    candidates = candidates.filter(c => {
+                        const stName = c.attributes ? (c.attributes.StName || c.attributes.Match_addr || c.attributes.LongLabel) : (c.address || '');
+                        return matchesStreetKeyword(stName, cleanStreetQuery);
+                    });
+                }
+
+                const reqState = extractQueryState(queryText);
+                if (reqState) {
+                    candidates = candidates.filter(c => {
+                        const fullText = (c.attributes && (c.attributes.LongLabel || c.attributes.Match_addr)) || c.address || '';
+                        return matchesRequestedState(fullText, reqState);
+                    });
+                }
+
+                const candidate = candidates[0];
+                if (candidate && candidate.score >= 60 && candidate.location) {
+                    const label = (candidate.attributes && (candidate.attributes.LongLabel || candidate.attributes.Match_addr)) || candidate.address || queryText;
+                    return {
+                        lat: parseFloat(candidate.location.y),
+                        lon: parseFloat(candidate.location.x),
+                        displayName: label,
+                        source: 'Esri ArcGIS'
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn("ArcGIS geocode error:", e);
+        }
+        return null;
+    }
+
+    // Attempt 1: Query with location proximity bias if available
+    if (typeof biasLat === 'number' && typeof biasLon === 'number') {
+        const biasedResult = await queryArcGIS(biasLat, biasLon);
+        if (biasedResult) return biasedResult;
+        console.log("  ↳ Biased Esri query yielded no exact house number match. Retrying unbiased global Esri query...");
+    }
+
+    // Attempt 2: Unbiased global Esri query
+    return await queryArcGIS(null, null);
+}
+
+function escapeRegExp(string) {
+    if (typeof string !== 'string') return '';
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function verifyHouseNumber(item, requestedHouseNumber) {
+    if (!requestedHouseNumber) return true;
+    if (!item) return false;
+    
+    const reqClean = String(requestedHouseNumber).trim();
+    if (item.address && item.address.house_number) {
+        if (item.address.house_number.trim() === reqClean) return true;
+    }
+
+    const name = item.display_name || item.name || '';
+    const safeNum = escapeRegExp(reqClean);
+    const regex = new RegExp('^' + safeNum + '(?:$|[\\s,])', 'i');
+    if (regex.test(name.trim())) return true;
+
+    return false;
+}
+
+function isStreetCandidate(c) {
+    if (!c) return false;
+    if (c.class === 'highway' || c.class === 'building' || c.type === 'house' || c.type === 'building' || c.addresstype === 'road' || c.addresstype === 'house') {
+        return true;
+    }
+    return false;
+}
+
+// 2. Nominatim API (for airports, IATA codes, cities, landmarks, and street addresses with auto suffix expansion)
+async function fetchNominatimGeocode(queryText, biasLat = null, biasLon = null) {
+    const houseMatch = queryText.trim().match(/^(\d+)/);
+    const hasHouseNumber = !!houseMatch;
+    const reqHouseNumber = houseMatch ? houseMatch[1] : null;
+    const hasSuffix = /\b(street|st|road|rd|avenue|ave|drive|dr|lane|ln|court|ct|way|boulevard|blvd|place|pl|circle|cir|trail|trl)\b/i.test(queryText);
+
+    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(queryText)}&format=json&addressdetails=1&limit=10`;
+    if (typeof biasLat === 'number' && typeof biasLon === 'number') {
+        const vb = `${biasLon - 5},${biasLat + 5},${biasLon + 5},${biasLat - 5}`;
+        url += `&viewbox=${vb}`;
+    }
+    console.log("  ↳ Requesting Nominatim API:", url);
+    try {
+        const res = await fetch(url, { headers: { 'User-Agent': 'RadarScopeApp/1.0' } });
+        if (res.ok) {
+            let data = await res.json();
+            console.log("  ↳ Nominatim Response Data:", data);
+
+            // Fallback: If full query returned no results (e.g. city name in unincorporated ETJ like Siena near Round Rock), try stripping city name
+            if ((!data || data.length === 0) && queryText.includes(',')) {
+                const parts = queryText.split(',').map(s => s.trim());
+                if (parts.length >= 3) {
+                    const simplified = `${parts[0]}, ${parts.slice(2).join(', ')}`;
+                    console.log(`  ↳ Nominatim retrying without city name: "${simplified}"`);
+                    const retryUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(simplified)}&format=json&addressdetails=1&limit=5`;
+                    const retryRes = await fetch(retryUrl, { headers: { 'User-Agent': 'RadarScopeApp/1.0' } });
+                    if (retryRes.ok) {
+                        data = await retryRes.json();
+                        console.log("  ↳ Nominatim Retry Response Data:", data);
+                    }
+                }
+            }
+
+            if (data && data.length > 0) {
+                // If house number was input, strictly filter to verified road/building candidates that have the requested house number
+                let valid = data;
+                if (hasHouseNumber) {
+                    valid = data.filter(c => isStreetCandidate(c) && verifyHouseNumber(c, reqHouseNumber));
+                }
+                const reqState = extractQueryState(queryText);
+                if (reqState) {
+                    valid = valid.filter(c => matchesRequestedState(c.display_name || c.name, reqState));
+                }
+
+                if (valid.length > 0) {
+                    if (typeof biasLat === 'number' && typeof biasLon === 'number') {
+                        valid.sort((a, b) => {
+                            const distA = calcDistance(biasLat, biasLon, parseFloat(a.lat), parseFloat(a.lon));
+                            const distB = calcDistance(biasLat, biasLon, parseFloat(b.lat), parseFloat(b.lon));
+                            return distA - distB;
+                        });
+                    }
+                    const item = valid[0];
+                    return {
+                        lat: parseFloat(item.lat),
+                        lon: parseFloat(item.lon),
+                        displayName: item.display_name || item.name || queryText,
+                        source: 'Nominatim'
+                    };
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("Nominatim geocode error:", e);
+    }
+
+    // Street Suffix Auto-Expansion: If user typed <number> <name> without a suffix (e.g. "314 Longmeadow"), try common street suffixes
+    if (hasHouseNumber && !hasSuffix) {
+        console.log(`  ↳ Query "${queryText}" typed with house number but without street suffix. Trying automatic street suffix expansion...`);
+        const suffixes = ['Lane', 'Drive', 'Way', 'Road', 'Street', 'Court', 'Avenue'];
+        for (const s of suffixes) {
+            const expanded = `${queryText.trim()} ${s}`;
+            let extUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(expanded)}&format=json&addressdetails=1&limit=5`;
+            if (typeof biasLat === 'number' && typeof biasLon === 'number') {
+                const vb = `${biasLon - 5},${biasLat + 5},${biasLon + 5},${biasLat - 5}`;
+                extUrl += `&viewbox=${vb}`;
+            }
+            try {
+                const extRes = await fetch(extUrl, { headers: { 'User-Agent': 'RadarScopeApp/1.0' } });
+                if (extRes.ok) {
+                    const extData = await extRes.json();
+                    const extValid = extData.filter(c => isStreetCandidate(c) && verifyHouseNumber(c, reqHouseNumber));
+                    if (extValid.length > 0) {
+                        if (typeof biasLat === 'number' && typeof biasLon === 'number') {
+                            extValid.sort((a, b) => {
+                                const distA = calcDistance(biasLat, biasLon, parseFloat(a.lat), parseFloat(a.lon));
+                                const distB = calcDistance(biasLat, biasLon, parseFloat(b.lat), parseFloat(b.lon));
+                                return distA - distB;
+                            });
+                        }
+                        const item = extValid[0];
+                        console.log(`  ↳ Automatic Street Suffix Expansion Match ("${expanded}"):`, item.display_name);
+                        return {
+                            lat: parseFloat(item.lat),
+                            lon: parseFloat(item.lon),
+                            displayName: item.display_name || item.name || expanded,
+                            source: 'Nominatim (Expanded Suffix)'
+                        };
+                    }
+                }
+            } catch (e) {
+                console.warn(`Error during suffix expansion query "${expanded}":`, e);
+            }
+        }
+    }
+
+    // Directional Prefix Auto-Expansion (e.g., "314 Longmeadow Dr" -> "314 E Longmeadow Dr", "314 W Longmeadow Dr")
+    if (hasHouseNumber && !/\b(e|w|n|s|east|west|north|south)\b/i.test(queryText)) {
+        const match = queryText.trim().match(/^(\d+)\s+(.+)$/);
+        if (match) {
+            const num = match[1];
+            const rest = match[2];
+            const directionals = ['E', 'W', 'N', 'S'];
+            for (const dir of directionals) {
+                const dirQuery = `${num} ${dir} ${rest}`;
+                let dirUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(dirQuery)}&format=json&addressdetails=1&limit=5`;
+                if (typeof biasLat === 'number' && typeof biasLon === 'number') {
+                    const vb = `${biasLon - 5},${biasLat + 5},${biasLon + 5},${biasLat - 5}`;
+                    dirUrl += `&viewbox=${vb}`;
+                }
+                try {
+                    const dirRes = await fetch(dirUrl, { headers: { 'User-Agent': 'RadarScopeApp/1.0' } });
+                    if (dirRes.ok) {
+                        const dirData = await dirRes.json();
+                        const dirValid = dirData.filter(c => isStreetCandidate(c) && verifyHouseNumber(c, reqHouseNumber));
+                        if (dirValid.length > 0) {
+                            if (typeof biasLat === 'number' && typeof biasLon === 'number') {
+                                dirValid.sort((a, b) => {
+                                    const distA = calcDistance(biasLat, biasLon, parseFloat(a.lat), parseFloat(a.lon));
+                                    const distB = calcDistance(biasLat, biasLon, parseFloat(b.lat), parseFloat(b.lon));
+                                    return distA - distB;
+                                });
+                            }
+                            const item = dirValid[0];
+                            console.log(`  ↳ Directional Prefix Expansion Match ("${dirQuery}"):`, item.display_name);
+                            return {
+                                lat: parseFloat(item.lat),
+                                lon: parseFloat(item.lon),
+                                displayName: item.display_name || item.name || dirQuery,
+                                source: 'Nominatim (Directional Prefix)'
+                            };
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`Error during directional expansion query "${dirQuery}":`, e);
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
+// 3. Photon API (Plain Text & Proximity)
+async function fetchPhotonGeocode(queryText, latBias = null, lonBias = null) {
+    let url = `https://photon.komoot.io/api/?q=${encodeURIComponent(queryText)}&limit=5`;
+    if (latBias !== null && lonBias !== null) {
+        url += `&lat=${latBias}&lon=${lonBias}`;
+    }
+    console.log("  ↳ Requesting Photon API:", url);
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            console.warn("  ↳ Photon HTTP error:", res.status, res.statusText);
+            return null;
+        }
+        const data = await res.json();
+        console.log("  ↳ Photon Response Data:", data);
+        if (data && data.features && data.features.length > 0) {
+            const reqState = extractQueryState(queryText);
+            if (reqState) {
+                const stateMatchedFeatures = data.features.filter(f => {
+                    const props = f.properties || {};
+                    const fullText = [props.name, props.street, props.city, props.locality, props.county, props.state, props.country].filter(Boolean).join(', ');
+                    return matchesRequestedState(fullText, reqState);
+                });
+                if (stateMatchedFeatures.length === 0) {
+                    console.log(`  ↳ Photon candidates failed state boundary validation for "${reqState}". Returning null.`);
+                    return null;
+                }
+                data.features = stateMatchedFeatures;
+            }
+
+            const cleanQuery = queryText.split(',')[0].trim();
+            let chosen = data.features.find(f => {
+                const name = f.properties && (f.properties.name || f.properties.street || f.properties.city);
+                const matched = matchesStreetKeyword(name, cleanQuery);
+                if (matched) console.log(`  ↳ String match filter PASSED for feature: "${name}" matching "${cleanQuery}"`);
+                return matched;
+            });
+            
+            if (!chosen) {
+                console.log(`  ↳ No features passed strict keyword filter for "${cleanQuery}". Using top returned feature.`);
+                chosen = data.features[0];
+            }
+            
+            const coords = chosen.geometry.coordinates; // [lon, lat]
+            const props = chosen.properties || {};
+            const label = [props.name, props.city || props.locality, props.state || props.country].filter(Boolean).join(', ') || queryText;
+            
+            return {
+                lat: parseFloat(coords[1]),
+                lon: parseFloat(coords[0]),
+                displayName: label,
+                source: 'Photon'
+            };
+        }
+    } catch (e) {
+        console.warn("Photon geocode error:", e);
+    }
+    return null;
+}
+
+// Master Cascading Geocode Runner
+async function executeCascadingGeocode(queryText) {
+    const viewCenter = getActiveViewCenter();
+    console.log(`%c[GEOCODE SEARCH]%c Query: "${queryText}" (View Center: ${viewCenter.lat.toFixed(4)}, ${viewCenter.lon.toFixed(4)})`, 'color: #00ff55; font-weight: bold;', 'color: inherit;');
+    
+    // 0. Airport & IATA/ICAO Code Priority Check (Strict: UPPERCASE 3/4-letter code like "SEA", "AUS", "SFO", "KAUS" or explicit "airport" keyword)
+    const cleanQ = queryText.trim();
+    const isStateName = ['OHIO', 'UTAH', 'IOWA', 'ROME', 'WACO'].includes(cleanQ.toUpperCase());
+    const isExactAirportCode = (/^[A-Z]{3,4}$/.test(cleanQ) || /\bairport\b/i.test(cleanQ)) && !isStateName;
+    if (isExactAirportCode) {
+        console.log(`[GEOCODE] Step 0: Checking Airport/IATA Code Priority for "${cleanQ}"...`);
+        const airportSearch = /airport\b/i.test(cleanQ) ? cleanQ : `${cleanQ} airport`;
+        const airportRes = await fetchNominatimGeocode(airportSearch);
+        if (airportRes) {
+            console.log(`%c[GEOCODE MATCH]%c Airport priority match succeeded:`, 'color: #00ff55; font-weight: bold;', 'color: inherit;', airportRes);
+            return airportRes;
+        }
+    }
+
+    // 1. Try Esri ArcGIS World Geocoder (with active view center proximity bias)
+    console.log(`[GEOCODE] Step 1: Querying Esri ArcGIS World Geocoder...`);
+    const arcgisRes = await fetchArcGISGeocode(queryText, viewCenter.lat, viewCenter.lon);
+    if (arcgisRes) {
+        console.log(`%c[GEOCODE MATCH]%c Esri ArcGIS succeeded:`, 'color: #00ff55; font-weight: bold;', 'color: inherit;', arcgisRes);
+        return arcgisRes;
+    }
+    console.log(`[GEOCODE] Step 1 (Esri ArcGIS): No match or only town/locality candidates.`);
+
+    // 2. Try Nominatim (Airports / IATA / Cities / Landmarks / Street Addresses with ETJ fallback)
+    console.log(`[GEOCODE] Step 2: Querying Nominatim API...`);
+    const nomRes = await fetchNominatimGeocode(queryText, viewCenter.lat, viewCenter.lon);
+    if (nomRes) {
+        console.log(`%c[GEOCODE MATCH]%c Nominatim succeeded:`, 'color: #00ff55; font-weight: bold;', 'color: inherit;', nomRes);
+        return nomRes;
+    }
+    console.log(`[GEOCODE] Step 2 (Nominatim): No match.`);
+
+    // 3. Try Photon (Fallback Text Search)
+    console.log(`[GEOCODE] Step 3: Querying Photon API (Fallback Text Search)...`);
+    const photonRes = await fetchPhotonGeocode(queryText);
+    if (photonRes) {
+        console.log(`%c[GEOCODE MATCH]%c Photon succeeded:`, 'color: #00ff55; font-weight: bold;', 'color: inherit;', photonRes);
+        return photonRes;
+    }
+    console.log(`[GEOCODE] Step 3 (Photon): No match.`);
+
+    console.warn(`[GEOCODE FAILED] No result returned from any provider for query: "${queryText}"`);
+    return null;
+}
+
+function initAddressSearchControls() {
+    const searchPanel = document.getElementById('location-search-panel');
+    const searchInput = document.getElementById('addr-search-input');
+    const goBtn = document.getElementById('addr-search-go-btn');
+    const previewInfo = document.getElementById('addr-preview-info');
+
+    if (!searchPanel) return;
+
+    const removeStagingMarker = () => {
+        if (addressSearchStagingMarker && map) {
+            map.removeLayer(addressSearchStagingMarker);
+            addressSearchStagingMarker = null;
+        }
+    };
+
+    const performSearch = async () => {
+        const text = searchInput ? searchInput.value.trim() : '';
+        if (!text) return;
+
+        if (goBtn) {
+            goBtn.disabled = true;
+            goBtn.innerText = '...';
+        }
+
+        const result = await executeCascadingGeocode(text);
+
+        if (goBtn) {
+            goBtn.disabled = false;
+            goBtn.innerText = 'GO';
+        }
+
+        if (result) {
+            // Ensure selection mode is active if user typed into search without clicking SELECT LOCATION first
+            const selectBtn = document.getElementById('location-select-btn');
+            if (radarScope && !radarScope.isSelectionMode && selectBtn) {
+                selectBtn.click();
+            }
+
+            // Update radarScope temp coordinates
+            if (radarScope) {
+                radarScope.tempLat = result.lat;
+                radarScope.tempLon = result.lon;
+                radarScope.isProgrammaticChange = true;
+            }
+
+            stagedTargetLat = result.lat;
+            stagedTargetLon = result.lon;
+
+            // Pan map to proposed location
+            if (map) map.setView([stagedTargetLat, stagedTargetLon]);
+
+            // Update sidebar input fields
+            const latInput = document.getElementById('val-lat');
+            const lonInput = document.getElementById('val-lon');
+            if (latInput) latInput.value = stagedTargetLat.toFixed(5);
+            if (lonInput) lonInput.value = stagedTargetLon.toFixed(5);
+
+            // Add staging marker on map
+            removeStagingMarker();
+            if (map && typeof L !== 'undefined') {
+                const icon = L.divIcon({
+                    className: 'radar-staging-target',
+                    html: '<div class="radar-staging-crosshair"></div>',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+                addressSearchStagingMarker = L.marker([stagedTargetLat, stagedTargetLon], { icon, interactive: false }).addTo(map);
+            }
+
+            // Sync staging marker position callback for radarScope map changes
+            if (radarScope && radarScope.selectionCallbacks) {
+                radarScope.selectionCallbacks.updateStagingMarkerPosition = (lat, lon) => {
+                    if (addressSearchStagingMarker) {
+                        addressSearchStagingMarker.setLatLng([lat, lon]);
+                    }
+                };
+            }
+
+            // Show proposed location label
+            if (previewInfo) {
+                previewInfo.style.display = 'block';
+                previewInfo.innerText = `// PROPOSED: ${result.displayName.substring(0, 35)}`;
+                previewInfo.title = result.displayName;
+            }
+        } else {
+            alert(`No match found for "${text}". Please try adding a city, zip code, or house number.`);
+        }
+    };
+
+    if (goBtn) goBtn.addEventListener('click', performSearch);
+    if (searchInput) {
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
+    }
+
+    // Clean up staging marker when selection mode exits via CONFIRM or CANCEL buttons
+    const confirmBtn = document.getElementById('location-confirm-btn');
+    const cancelBtn = document.getElementById('location-cancel-btn');
+
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => {
+            removeStagingMarker();
+            if (previewInfo) {
+                previewInfo.style.display = 'none';
+                previewInfo.innerText = '';
+            }
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            removeStagingMarker();
+            if (previewInfo) {
+                previewInfo.style.display = 'none';
+                previewInfo.innerText = '';
+            }
+        });
+    }
+}
+

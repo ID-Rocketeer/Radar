@@ -345,6 +345,58 @@ function executeRadarUnitTestSuite(context) {
 
                 testAc.cacheDomElements();
                 assert("cacheDomElements updates cache for detached elements", testAc.markerEl === secondMockEl, "Detached element was cleaned and the new active element was cached.");
+
+                // 14.14 Test isStreetCandidate strict road/building classification
+                assert("isStreetCandidate returns true for highway class", context.isStreetCandidate({ class: 'highway', type: 'residential' }) === true, "Highway class is recognized as street candidate.");
+                assert("isStreetCandidate returns true for building class", context.isStreetCandidate({ class: 'building' }) === true, "Building class is recognized as street candidate.");
+                assert("isStreetCandidate returns true for house type", context.isStreetCandidate({ type: 'house' }) === true, "House type is recognized as street candidate.");
+                assert("isStreetCandidate returns true for road addresstype", context.isStreetCandidate({ addresstype: 'road' }) === true, "Road addresstype is recognized as street candidate.");
+                assert("isStreetCandidate rejects place class (subdivisions/neighborhoods)", context.isStreetCandidate({ class: 'place', type: 'neighbourhood' }) === false, "Place class (neighborhood) is strictly rejected for house queries.");
+                assert("isStreetCandidate rejects landuse class (residential zones)", context.isStreetCandidate({ class: 'landuse', type: 'residential' }) === false, "Landuse class (residential zone polygon) is strictly rejected for house queries.");
+
+                // 14.15 Test extractQueryState and matchesRequestedState
+                assert("extractQueryState identifies full state name", context.extractQueryState("Sea, South Carolina") === "SOUTH CAROLINA", "Extracted SOUTH CAROLINA from full name.");
+                assert("extractQueryState identifies 2-letter postal code", context.extractQueryState("Des Moines, IA") === "IOWA", "Extracted IOWA from IA abbreviation.");
+                assert("extractQueryState returns null when no state present", context.extractQueryState("Austin") === null, "Returned null when no US state present.");
+                assert("matchesRequestedState evaluates positive match", context.matchesRequestedState("Sea Ln, Aiken, South Carolina, 29801", "SOUTH CAROLINA") === true, "Positive state match confirmed.");
+                assert("matchesRequestedState rejects out-of-state candidate", context.matchesRequestedState("South Ln, Andalusia, Alabama", "SOUTH CAROLINA") === false, "Out-of-state candidate rejected.");
+
+                // 14.16 Test verifyHouseNumber and escapeRegExp
+                assert("escapeRegExp escapes special regex control characters", context.escapeRegExp("314*+?^$") === "314\\*\\+\\?\\^\\$", "Special characters safely escaped.");
+                assert("verifyHouseNumber validates exact address object", context.verifyHouseNumber({ address: { house_number: "314" } }, "314") === true, "Exact house number in address object validated.");
+                assert("verifyHouseNumber validates name string boundary without trailing space", context.verifyHouseNumber({ display_name: "314" }, "314") === true, "House number at end of string matched.");
+                assert("verifyHouseNumber rejects incorrect house numbers", context.verifyHouseNumber({ display_name: "3140 Longmeadow Dr" }, "314") === false, "Prefix house number mismatch rejected.");
+
+                // 14.17 Test enterSelectionMode event listener unbinding safety
+                let mockOffCount = 0;
+                const origGetElem = context.document.getElementById;
+                context.document.getElementById = () => ({ value: '', style: {}, removeAttribute: () => {}, setAttribute: () => {}, classList: { add: () => {}, remove: () => {} } });
+                const testScope = new context.RadarScope(40, -90, 25);
+                testScope.map = {
+                    off: () => { mockOffCount++; },
+                    dragging: { enable: () => {} },
+                    setMinZoom: () => {},
+                    setMaxZoom: () => {},
+                    getZoom: () => 10,
+                    setView: () => {},
+                    on: () => {}
+                };
+                testScope._boundSelectionMapChange = () => {};
+                testScope._boundSelectionZoomStart = () => {};
+                testScope._boundSelectionZoomEnd = () => {};
+                testScope.enterSelectionMode({
+                    getHomeLat: () => 40,
+                    getHomeLon: () => -90,
+                    getDisplayedRange: () => 25,
+                    updateMinZoom: () => {},
+                    stopPolling: () => {},
+                    setSweepActive: () => {},
+                    clearActiveMarkers: () => {},
+                    calcDistance: () => 10,
+                    getBezelDiameter: () => 600
+                });
+                assert("enterSelectionMode unbinds existing listeners before attaching new ones", mockOffCount >= 2, "Existing event listeners safely unbound to prevent memory leaks.");
+                context.document.getElementById = origGetElem;
             } finally {
                 context.document.body.contains = originalContains;
                 context.document.getElementById = originalGetElementById;

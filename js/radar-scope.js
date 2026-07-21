@@ -219,6 +219,7 @@ var RadarScope = class RadarScope {
 
     initLocationSelection(callbacks) {
         this.callbacks = callbacks;
+        this.selectionCallbacks = callbacks;
         const selectBtn = document.getElementById('location-select-btn');
         const locateBtn = document.getElementById('location-locate-btn');
         const confirmBtn = document.getElementById('location-confirm-btn');
@@ -351,7 +352,7 @@ var RadarScope = class RadarScope {
         const viewport = document.querySelector('.radar-viewport');
         if (viewport) viewport.classList.add('selection-mode');
 
-        // Toggle button visibilities in sidebar
+        // Toggle button visibilities in sidebar and show location search panel
         document.getElementById('location-select-btn').style.display = 'none';
         const classBBtn = document.getElementById('class-b-toggle');
         if (classBBtn) classBBtn.style.display = 'none';
@@ -359,8 +360,18 @@ var RadarScope = class RadarScope {
         document.getElementById('location-confirm-btn').style.display = 'inline-block';
         document.getElementById('location-cancel-btn').style.display = 'inline-block';
 
-        // Enable map dragging
+        const defaultControls = document.getElementById('default-panel-controls');
+        const searchPanel = document.getElementById('location-search-panel');
+        if (defaultControls) defaultControls.style.display = 'none';
+        if (searchPanel) searchPanel.classList.add('active');
+
+        // Enable map dragging and lock scroll wheel zoom to center
         this.map.dragging.enable();
+        if (this.map.scrollWheelZoom) {
+            this.map.scrollWheelZoom.disable();
+            this.map.options.scrollWheelZoom = 'center';
+            this.map.scrollWheelZoom.enable();
+        }
 
         // Make configuration inputs editable during location selection
         const latInput = document.getElementById('val-lat');
@@ -390,9 +401,37 @@ var RadarScope = class RadarScope {
         const targetZoom = Math.max(minZoomSelection, Math.min(currentZoom, maxZoomSelection));
         this.map.setView([this.tempLat, this.tempLon], targetZoom, { animate: false });
 
-        // Bind Leaflet map drag/zoom events
+        this.isZooming = false;
+
+        // Unbind any previous selection listeners to prevent leaks if enterSelectionMode is called repeatedly
+        if (this._boundSelectionMapChange) {
+            this.map.off('move drag', this._boundSelectionMapChange);
+        }
+        if (this._boundSelectionZoomStart) {
+            this.map.off('zoomstart', this._boundSelectionZoomStart);
+        }
+        if (this._boundSelectionZoomEnd) {
+            this.map.off('zoomend', this._boundSelectionZoomEnd);
+        }
+
+        // Bind Leaflet map drag/zoom events and lock zoom to tempLat/tempLon center
         this._boundSelectionMapChange = () => this.handleSelectionMapChange(callbacks);
-        this.map.on('move drag zoom', this._boundSelectionMapChange);
+        this._boundSelectionZoomStart = () => {
+            this.isZooming = true;
+        };
+        this._boundSelectionZoomEnd = () => {
+            if (!this.isSelectionMode) return;
+            this.isProgrammaticChange = true;
+            this.map.setView([this.tempLat, this.tempLon], this.map.getZoom(), { animate: false });
+            this.updateTempRangeFromMap(callbacks);
+            setTimeout(() => {
+                this.isZooming = false;
+                this.isProgrammaticChange = false;
+            }, 50);
+        };
+        this.map.on('move drag', this._boundSelectionMapChange);
+        this.map.on('zoomstart', this._boundSelectionZoomStart);
+        this.map.on('zoomend', this._boundSelectionZoomEnd);
 
         let programmaticTimer = null;
         const clearProgrammatic = () => {
@@ -407,21 +446,37 @@ var RadarScope = class RadarScope {
         programmaticTimer = setTimeout(clearProgrammatic, 250);
     }
 
+    updateTempRangeFromMap(callbacks) {
+        if (!this.map || !callbacks) return;
+        const center = this.map.getCenter();
+        const bezelDiameter = callbacks.getBezelDiameter ? callbacks.getBezelDiameter() : 600;
+        const visibleRadiusPx = bezelDiameter * 0.47;
+        const centerPoint = this.map.latLngToLayerPoint(center);
+        const edgeLatLng = this.map.layerPointToLatLng([centerPoint.x + visibleRadiusPx, centerPoint.y]);
+        
+        let displayedRange = callbacks.calcDistance ? callbacks.calcDistance(this.tempLat, this.tempLon, edgeLatLng.lat, edgeLatLng.lng) : this.tempRange;
+        if (displayedRange && !isNaN(displayedRange)) {
+            this.tempRange = Math.max(2, displayedRange);
+        }
+
+        const rangeInput = document.getElementById('val-range');
+        if (rangeInput && document.activeElement !== rangeInput) {
+            rangeInput.value = this.tempRange < 10 ? this.tempRange.toFixed(3) : this.tempRange.toFixed(1);
+        }
+    }
+
     handleSelectionMapChange(callbacks) {
-        if (!this.isSelectionMode || this.isProgrammaticChange) return;
+        if (!this.isSelectionMode || this.isProgrammaticChange || this.isZooming) return;
 
         const center = this.map.getCenter();
         this.tempLat = center.lat;
         this.tempLon = center.lng;
 
-        // Calculate current scope range by measuring distance from center to bezel edge in pixels
-        const bezelDiameter = callbacks.getBezelDiameter();
-        const visibleRadiusPx = bezelDiameter * 0.47;
-        const centerPoint = this.map.latLngToLayerPoint(center);
-        const edgeLatLng = this.map.layerPointToLatLng([centerPoint.x + visibleRadiusPx, centerPoint.y]);
-        
-        let displayedRange = callbacks.calcDistance(this.tempLat, this.tempLon, edgeLatLng.lat, edgeLatLng.lng);
-        this.tempRange = Math.max(2, displayedRange);
+        if (callbacks.updateStagingMarkerPosition) {
+            callbacks.updateStagingMarkerPosition(center.lat, center.lng);
+        }
+
+        this.updateTempRangeFromMap(callbacks);
 
         // Update sidebar UI text readouts in real-time (but don't overwrite user's typing active state)
         const latInput = document.getElementById('val-lat');
@@ -457,11 +512,23 @@ var RadarScope = class RadarScope {
 
         // Unbind Leaflet events
         if (this._boundSelectionMapChange) {
-            this.map.off('move drag zoom', this._boundSelectionMapChange);
+            this.map.off('move drag', this._boundSelectionMapChange);
         }
+        if (this._boundSelectionZoomStart) {
+            this.map.off('zoomstart', this._boundSelectionZoomStart);
+        }
+        if (this._boundSelectionZoomEnd) {
+            this.map.off('zoomend', this._boundSelectionZoomEnd);
+        }
+        this.isZooming = false;
 
-        // Disable map dragging
+        // Disable map dragging and restore default scroll wheel zoom
         this.map.dragging.disable();
+        if (this.map.scrollWheelZoom) {
+            this.map.scrollWheelZoom.disable();
+            this.map.options.scrollWheelZoom = true;
+            this.map.scrollWheelZoom.enable();
+        }
 
         // Toggle button visibility back to default
         document.getElementById('location-select-btn').style.display = 'inline-block';
@@ -470,6 +537,18 @@ var RadarScope = class RadarScope {
         document.getElementById('location-locate-btn').style.display = 'none';
         document.getElementById('location-confirm-btn').style.display = 'none';
         document.getElementById('location-cancel-btn').style.display = 'none';
+
+        const defaultControls = document.getElementById('default-panel-controls');
+        const searchPanel = document.getElementById('location-search-panel');
+        const searchInput = document.getElementById('addr-search-input');
+        const previewInfo = document.getElementById('addr-preview-info');
+        if (searchPanel) searchPanel.classList.remove('active');
+        if (defaultControls) defaultControls.style.display = 'flex';
+        if (searchInput) searchInput.value = '';
+        if (previewInfo) {
+            previewInfo.style.display = 'none';
+            previewInfo.innerText = '';
+        }
 
         // Remove CSS class from viewport (restores map opacity and hides reticle)
         const viewport = document.querySelector('.radar-viewport');
@@ -488,6 +567,7 @@ var RadarScope = class RadarScope {
         this.map.setMaxZoom(20);
 
         if (confirmChanges) {
+            this.updateTempRangeFromMap(callbacks);
             // Commit changes to system variables and normalize them
             const finalLat = callbacks.normalizeLat(this.tempLat);
             const finalLon = callbacks.normalizeLon(this.tempLon);
@@ -502,14 +582,15 @@ var RadarScope = class RadarScope {
             this.rangeNm = finalRange;
             // Update address bar query parameters dynamically without a page refresh
             try {
-                const newUrl = `${window.location.pathname}?lat=${finalLat.toFixed(5)}&lon=${finalLon.toFixed(5)}&rng=${Math.round(finalRange)}`;
+                const formattedRange = finalRange < 10 ? finalRange.toFixed(3) : finalRange.toFixed(1);
+                const newUrl = `${window.location.pathname}?lat=${finalLat.toFixed(5)}&lon=${finalLon.toFixed(5)}&rng=${formattedRange}`;
                 window.history.pushState({ path: newUrl }, '', newUrl);
             } catch (historyError) {
                 console.warn("Silent fallback: window.history.pushState is blocked in this browser context (e.g. file:/// URL).", historyError);
             }
 
-            // Snap map view center
-            this.map.setView([finalLat, finalLon]);
+            const targetZoom = callbacks.getZoomForRange(finalRange);
+            this.map.setView([finalLat, finalLon], targetZoom, { animate: false });
 
             // Clear active target tracking registry and bearings
             callbacks.clearActiveMarkers();
@@ -519,10 +600,14 @@ var RadarScope = class RadarScope {
             // Refresh sidebar lists
             callbacks.updateTargetList();
         } else {
-            // Cancel changes: revert map position to original home coordinates
+            // Cancel changes: revert map position and zoom level to original home coordinates and range
             const origLat = callbacks.getHomeLat();
             const origLon = callbacks.getHomeLon();
-            this.map.setView([origLat, origLon]);
+            const origRange = callbacks.getRangeNm();
+
+            this.tempLat = origLat;
+            this.tempLon = origLon;
+            this.tempRange = origRange;
         }
 
         // Reset zoom snap and snap the zoom level to match the new or original range ring diameter
@@ -531,11 +616,17 @@ var RadarScope = class RadarScope {
         callbacks.recalculateDisplayedRange();
         callbacks.updateDisplayedRange();
 
-        // Redraw and lock range rings back to center with proper range
-        const ringFactors = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
         const hLat = callbacks.getHomeLat();
         const hLon = callbacks.getHomeLon();
         const rNm = callbacks.getRangeNm();
+        const targetZoom = callbacks.getZoomForRange(rNm);
+
+        this.isProgrammaticChange = true;
+        this.map.setView([hLat, hLon], targetZoom, { animate: false });
+        setTimeout(() => { this.isProgrammaticChange = false; }, 250);
+
+        // Redraw and lock range rings back to center with proper range
+        const ringFactors = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
         this.rangeRings.forEach((ring, idx) => {
             const factor = ringFactors[idx] || 1.0;
             ring.setLatLng([hLat, hLon]);

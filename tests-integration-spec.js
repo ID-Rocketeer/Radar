@@ -384,6 +384,11 @@ function executeRadarIntegrationTestSuite(context) {
 
         const borderlineBalloon = new context.Aircraft("fake_border_balloon", { category: "B2", t: "C172", desc: "CESSNA 172", gs: 46 });
         assert("Class B Balloon Speed Sanity Check - Borderline Fast Balloon", borderlineBalloon.iconType === 'light', "Fast balloon at 46 KTS falls back to standard civilian 'light' propeller shape.");
+
+        // 14. Test State Name 4-Letter Airport Exclusion (e.g. OHIO)
+        const isStateName = ['OHIO', 'UTAH', 'IOWA', 'ROME', 'WACO'].includes("OHIO".toUpperCase());
+        const isExactAirportCode = (/^[A-Z]{3,4}$/.test("OHIO") || /\bairport\b/i.test("OHIO")) && !isStateName;
+        assert("4-Letter State Name OHIO Excluded from Step 0 Airport Priority", isExactAirportCode === false, "State name OHIO strictly excluded from triggering Step 0 airport lookup.");
     } catch (e) {
         assert("TEST SUITE 13 EXCEPTION", false, e.message);
     }

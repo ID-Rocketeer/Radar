@@ -78,6 +78,10 @@ If parameters are missing, invalid, or omitted, the application falls back to:
 
 * **Interactive Location Calibration**:
   Clicking the **SELECT LOCATION** button unlocks the map canvas. You can drag and zoom the map to align your home base under the center crosshairs, type coordinates directly into the fields, or click **LOCATE ME** to run a triple-redundant query (Device GPS -> Wi-Fi Triangulation -> IP lookup fallback). Click **CONFIRM** to lock in the new station or **CANCEL** to revert.
+
+* **Address Search & Geocoding (SELECT LOCATION)**:
+  Clicking **SELECT LOCATION** opens calibration mode and reveals the Address Search toolbar. You can enter any street address, city, zip code, or airport code (e.g. `AUS`, `EGSU`, `7940 Gato Lane, Round Rock, TX`, `Austin, TX`, or `78665`). The system runs a cascading multi-layer search (Step 0: Airport Code Priority via Nominatim -> Step 1: Esri ArcGIS World Geocoder with view center bias & parcel matching -> Step 2: Nominatim with ETJ boundary fallback -> Step 3: Photon Fallback Text Search) and stages a temporary target crosshair on the map, prompting for **CONFIRM** (relocates the radar station, updates bearings/distances, and sets new URL coordinates) or **CANCEL** (reverts map to previous station position).
+
   
 * **Dynamic Flight Trails**:
   Flight trail length is managed by a dynamic scaling engine based on visible traffic:

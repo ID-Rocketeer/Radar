@@ -98,7 +98,7 @@
                                 <span class="range-unit">NM</span>
                             </div>
                         </div>
-                        <div class="panel-controls">
+                        <div class="panel-controls" id="default-panel-controls">
                             <button class="retro-btn active" id="trail-toggle" title="Toggle target historical breadcrumbs">
                                 TRAILS
                             </button>
@@ -109,8 +109,13 @@
                                 FULLSCREEN
                             </button>
                         </div>
+                        <div class="panel-controls location-search-panel" id="location-search-panel" style="display: none;">
+                            <input type="text" id="addr-search-input" class="control-input addr-input" style="grid-column: span 2;" placeholder="Search address, zip, or airport (e.g. FAB)..." autocomplete="off" spellcheck="false" />
+                            <button class="retro-btn btn-search-go" id="addr-search-go-btn" style="grid-column: span 1;" title="Search for location">GO</button>
+                            <div id="addr-preview-info" class="addr-preview-info" style="display: none; grid-column: span 3;">// PROPOSED LOCATION...</div>
+                        </div>
                         <div class="panel-controls location-controls" style="margin-top: 6px;">
-                            <button class="retro-btn" id="location-select-btn" style="grid-column: span 2; border-color: rgba(0, 255, 85, 0.35);" title="Calibrate home station coordinates and sweep range">
+                            <button class="retro-btn" id="location-select-btn" style="grid-column: span 2; border-color: rgba(0, 255, 85, 0.35);" title="Calibrate home station coordinates, search address, or sweep range">
                                 SELECT LOCATION
                             </button>
                             <button class="retro-btn" id="class-b-toggle" style="grid-column: span 1;" title="Toggle visibility of Class B targets (gliders, balloons, UAVs)">
@@ -249,9 +254,11 @@
                     <li><strong>Ring 5 (80%):</strong> <span id="ring-val-5">--</span> NM</li>
                     <li><strong>Ring 6 (100%):</strong> <span id="ring-val-6">--</span> NM (Scope boundary)</li>
                 </ul>
+                <h3>1. OVERVIEW</h3>
+                <p>Radar Scope is an interactive WebGL-based air traffic surveillance terminal designed to display real-time aircraft telemetry. The system simulates an authentic tactical radar console with rotating sweep lines, target trail decay, range rings, and interactive target telemetry decoding.</p>
 
-                <h3>2. URL PARAMETERS</h3>
-                <p>Modify query parameters in the address bar to configure the station location and radar range:</p>
+                <h3>2. RADAR NAVIGATION &amp; COORDINATES</h3>
+                <p>The radar station operates centered on a specific home coordinate. You can adjust the station center and range view via URL parameters:</p>
                 <div class="code-block">
                     ?lat=[latitude]&amp;lon=[longitude]&amp;rng=[range_nm]
                 </div>
@@ -281,6 +288,202 @@
                     </li>
                     <li><strong>TARGET FILTERS:</strong> Restricts radar sweeps to specific target categories: <code>ALL</code> traffic, <code>MILITARY ONLY</code>, <code>COMMERCIAL</code> airliners, or <code>GENERAL & OTHER</code> aviation.</li>
                     <li><strong>SELECT LOCATION:</strong> Recalibrates the home station coordinates. Click to enter calibration mode (inputs unlocked, map draggable). You can type new values directly, drag/zoom the map to reposition, or click <strong>LOCATE ME</strong> to auto-locate using your device's GPS, cell-triangulation, or IP address. Click <strong>CONFIRM</strong> to apply the new coordinates or <strong>CANCEL</strong> to abort.</li>
+                    <li><strong>SEARCH LOCATION (SEARCH LOC):</strong> Allows searching for any address, city, zip code, or airport (by IATA/ICAO code like <code>FAB airport</code> or <code>AUS</code>). Selecting a result stages a temporary target crosshair on the map and prompts for <strong>CONFIRM</strong> (replaces station coordinates and URL) or <strong>CANCEL</strong> (reverts to previous station coordinates).</li>
+                </ul>
+
+                <h3>4. DATA & MAP CREDITS</h3>
+                <p>Application UI &amp; software coding &copy; 2026 Steven P. Collins. Licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank">GNU General Public License v3.0</a>.</p>
+                <p>Flight telemetry data is provided by &copy; <a href="https://airplanes.live/" target="_blank">Airplanes.live</a> contributors. Map telemetry baselayers are provided by &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors under the Open Database License (ODbL), and styled by &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Debugger Modal -->
+    <div class="modal-overlay" id="debug-modal">
+        <div class="modal-content sidebar-glass-panel" style="max-width: 750px;">
+            <div class="modal-header">
+                <span class="modal-title">// LINK DIAGNOSTICS & SYSTEM HISTOGRAM</span>
+                <button class="modal-close" id="debug-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>The table below logs the 15 most recent telemetry API polling operations. When a <code>LINK ERROR</code> is detected, diagnostics are captured and display update loops are temporarily frozen to preserve telemetry logs for debugging.</p>
+                <div style="overflow-x: auto;">
+                    <table class="debug-log-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp (UTC)</th>
+                                <th>Request URL</th>
+                                <th>Poll Status</th>
+                                <th>Latency</th>
+                                <th>Targets</th>
+                                <th>Diagnostic Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="debug-log-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SVG Filter for Torn Paper Edges -->
+    <svg style="position: absolute; width: 0; height: 0; pointer-events: none;" width="0" height="0">
+        <defs>
+            <filter id="paper-tear">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+                            <button class="filter-btn" data-filter="ga" title="Display general aviation and other light aircraft">GENERAL & OTHER</button>
+                        </div>
+                    </section>
+
+                    <!-- Target List Panel -->
+                    <section class="sidebar-panel target-list-panel">
+                        <h2 class="panel-title">// TARGET LIST (<span id="target-count">0</span> DETECTED)</h2>
+                        <div class="list-headers">
+                            <span class="hdr-callsign">CALLSIGN</span>
+                            <span class="hdr-alt">ALT (FT)</span>
+                            <span class="hdr-spd">SPD (KT)</span>
+                            <span class="hdr-dst">DST (NM)</span>
+                        </div>
+                        <div class="target-list" id="target-list">
+                            <div class="empty-list-message">WAITING FOR RADAR SWEEP...</div>
+                        </div>
+                    </section>
+
+                    <!-- Telemetry Details Panel -->
+                    <section class="sidebar-panel telemetry-panel">
+                        <h2 class="panel-title">// ACTIVE TELEMETRY LOG</h2>
+                        <div class="telemetry-display" id="telemetry-display">
+                            <div class="empty-telemetry">NO TARGET ACQUIRED. SELECT A TARGET FROM THE RADAR SCREEN OR LIST PANEL.</div>
+                        </div>
+                    </section>
+                </div>
+            </aside>
+
+            <div class="sidebar-bottom-label-container">
+                <!-- OSM License Sticker -->
+                <a href="https://www.openstreetmap.org/copyright" target="_blank" class="crusty-paper-label" title="OpenStreetMap Copyright & License">
+                    <div class="crusty-paper-label-border-wrapper">
+                        <div class="crusty-paper-label-inner">
+                            <div class="label-title">OpenStreetMap</div>
+                            <div class="label-subtitle">Copyright and License</div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Radar Viewport (Map) -->
+        <main class="radar-viewport">
+            <div id="map"></div>
+            <!-- Centered Calibration Reticle (Visible only during location selection) -->
+            <div class="radar-reticle">
+                <div class="reticle-ring-outer"></div>
+                <div class="reticle-ring-inner"></div>
+                <div class="reticle-crosshair-h"></div>
+                <div class="reticle-crosshair-v"></div>
+                <div class="reticle-center-dot"></div>
+                <div class="reticle-text">CALIBRATING LOCATION...</div>
+            </div>
+            <!-- Manufacturer Brand Label (Silk-screened on metal bezel) -->
+            <div class="brand-label">
+                <div class="brand-name">Dragon Dreams Software</div>
+                <div class="brand-model">Type-1090 Display Unit</div>
+            </div>
+            <!-- CRT Bezel Panel & 3D Glass Overlays -->
+            <div class="radar-base-plate"></div>
+            <div class="radar-scope-bezel"></div>
+            <div class="radar-glass-edge"></div>
+            <div class="radar-glass-glare">
+                <div class="radar-glass-glare-reflection" id="glass-glare-reflection"></div>
+            </div>
+
+            <!-- Scope Mounting Screws Container (Direct child for layering, z-index 2200) -->
+            <div class="radar-scope-screws-container">
+                <div class="mounting-screw scope-screw s0" style="left: 50%; top: 0%; --slot-rot: 42deg;"></div>
+                <div class="mounting-screw scope-screw s45" style="left: 85.36%; top: 14.64%; --slot-rot: 128deg;"></div>
+                <div class="mounting-screw scope-screw s90" style="left: 100%; top: 50%; --slot-rot: 15deg;"></div>
+                <div class="mounting-screw scope-screw s135" style="left: 85.36%; top: 85.36%; --slot-rot: 93deg;"></div>
+                <div class="mounting-screw scope-screw s180" style="left: 50%; top: 100%; --slot-rot: 67deg;"></div>
+                <div class="mounting-screw scope-screw s225" style="left: 14.64%; top: 85.36%; --slot-rot: 154deg;"></div>
+                <div class="mounting-screw scope-screw s270" style="left: 0%; top: 50%; --slot-rot: 110deg;"></div>
+                <div class="mounting-screw scope-screw s315" style="left: 14.64%; top: 14.64%; --slot-rot: 55deg;"></div>
+            </div>
+            <!-- Custom Zoom Controls overlaying the bezel -->
+            <div class="radar-zoom-control">
+                <button id="zoom-in" title="Zoom In">+</button>
+                <button id="zoom-out" title="Zoom Out">-</button>
+            </div>
+            <!-- CodeRed Pilot Indicator Light (above zoom switches) -->
+            <div class="pilot-light" id="codered-light">
+                <div class="pilot-light-dome"></div>
+            </div>
+        </main>
+        <!-- Mobile Brand Label Strip (flow element below radar scope, stacked portrait only)
+             The desktop .brand-label inside .radar-viewport is hidden in mobile mode.
+             This strip renders in the base plate area below the scope, guaranteed clear. -->
+        <div class="brand-label-strip">
+            <div class="brand-name">Dragon Dreams Software</div>
+            <div class="brand-model">Type-1090 Display Unit</div>
+        </div>
+    </div>
+
+    <!-- Help Modal Overlay -->
+    <div class="modal-overlay" id="help-modal">
+        <div class="modal-content sidebar-glass-panel">
+            <div class="modal-header">
+                <span class="modal-title">// SYSTEM OPERATIONS MANUAL</span>
+                <button class="modal-close" id="help-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3>1. RANGE RINGS</h3>
+                <p>The scope displays 6 concentric green dashed range rings centered on the home station. The ring distances are scaled to the current range:</p>
+                <ul>
+                    <li><strong>Ring 1 (10%):</strong> <span id="ring-val-1">--</span> NM</li>
+                    <li><strong>Ring 2 (20%):</strong> <span id="ring-val-2">--</span> NM</li>
+                    <li><strong>Ring 3 (40%):</strong> <span id="ring-val-3">--</span> NM</li>
+                    <li><strong>Ring 4 (60%):</strong> <span id="ring-val-4">--</span> NM</li>
+                    <li><strong>Ring 5 (80%):</strong> <span id="ring-val-5">--</span> NM</li>
+                    <li><strong>Ring 6 (100%):</strong> <span id="ring-val-6">--</span> NM (Scope boundary)</li>
+                </ul>
+                <h3>1. OVERVIEW</h3>
+                <p>Radar Scope is an interactive WebGL-based air traffic surveillance terminal designed to display real-time aircraft telemetry. The system simulates an authentic tactical radar console with rotating sweep lines, target trail decay, range rings, and interactive target telemetry decoding.</p>
+
+                <h3>2. RADAR NAVIGATION &amp; COORDINATES</h3>
+                <p>The radar station operates centered on a specific home coordinate. You can adjust the station center and range view via URL parameters:</p>
+                <div class="code-block">
+                    ?lat=[latitude]&amp;lon=[longitude]&amp;rng=[range_nm]
+                </div>
+                <ul>
+                    <li><strong>Latitude options:</strong> <code>lat</code>, <code>latitude</code> (e.g. <code>30.1945</code>)</li>
+                    <li><strong>Longitude options:</strong> <code>lon</code>, <code>lng</code>, <code>long</code>, <code>longitude</code> (e.g. <code>-97.6699</code>)</li>
+                    <li><strong>Range options:</strong> <code>rng</code>, <code>range</code> (clamped <code>2</code> to <code>250</code> NM)</li>
+                </ul>
+                <p>Presets (Click to load):</p>
+                <ul>
+                    <li><a href="?lat=30.19453&amp;lon=-97.66987&amp;rng=25" target="_self">Austin-Bergstrom (AUS) // 25 NM</a></li>
+                    <li><a href="?lat=38.8512&amp;lon=-77.0377&amp;rng=10" target="_self">Reagan Washington (DCA) // 10 NM</a></li>
+                    <li><a href="?lat=36.236&amp;lon=-115.034&amp;rng=40" target="_self">Nellis AFB (LSV) // 40 NM</a></li>
+                </ul>
+
+                <h3>3. SYSTEM FEATURES</h3>
+                <ul>
+                    <li><strong>CONSOLE STATUS:</strong> The status bezel indicates the application state. On load, the system starts in <code>STANDBY</code> (unlit). Once a connection is successfully established with the telemetry API, it switches to <code>SCANNING</code> (illuminated green). Connection loss triggers <code>LINK ERROR</code> (unlit).</li>
+                    <li><strong>CONFIGURATION TOGGLES:</strong> The configuration panel features three toggle controls whose states are indicated by illumination (illuminated green/amber for ON, dark for OFF):
+                        <ul>
+                            <li><strong>TRAILS:</strong> Toggles historical breadcrumb tracking on the scope.</li>
+                            <li><strong>LOW:</strong> Filters out all high-altitude cruising traffic above the Transition Altitude of 18,000 feet (FL180), displaying only local air traffic.</li>
+                            <li><strong>FULLSCREEN:</strong> Expands the radar display area to fill the screen bounds.</li>
+                            <li><strong>CLASS B:</strong> Toggles visibility of Class B targets (gliders, balloons, UAVs) highlighted on the scope in distinct yellow.</li>
+                            <li><strong>SOUND TOGGLE (🔇/🔊):</strong> Located in the sidebar header. Toggles a simulated 3D room soundscape generating ambient mains hum, cooling fans, computer memory whir, air conditioning, and overhead ballast rattle echoing inside a concrete bunker room.</li>
+                        </ul>
+                    </li>
+                    <li><strong>TARGET FILTERS:</strong> Restricts radar sweeps to specific target categories: <code>ALL</code> traffic, <code>MILITARY ONLY</code>, <code>COMMERCIAL</code> airliners, or <code>GENERAL & OTHER</code> aviation.</li>
+                    <li><strong>SELECT LOCATION:</strong> Recalibrates the home station coordinates. Click to enter calibration mode (inputs unlocked, map draggable). You can type new values directly, drag/zoom the map to reposition, or click <strong>LOCATE ME</strong> to auto-locate using your device's GPS, cell-triangulation, or IP address. Click <strong>CONFIRM</strong> to apply the new coordinates or <strong>CANCEL</strong> to abort.</li>
+                    <li><strong>SEARCH LOCATION (SEARCH LOC):</strong> Allows searching for any address, city, zip code, or airport (by IATA/ICAO code like <code>FAB airport</code> or <code>AUS</code>). Selecting a result stages a temporary target crosshair on the map and prompts for <strong>CONFIRM</strong> (replaces station coordinates and URL) or <strong>CANCEL</strong> (reverts to previous station coordinates).</li>
                 </ul>
 
                 <h3>4. DATA & MAP CREDITS</h3>
@@ -333,14 +536,14 @@
     <!-- Leaflet JS -->
     <script data-cfasync="false" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <!-- Application Logic (Sequenced Imports) -->
-    <script data-cfasync="false" src="js/utils.js?v=13.00"></script>
-    <script data-cfasync="false" src="js/warbird-db.js?v=13.00"></script>
-    <script data-cfasync="false" src="js/aircraft.js?v=13.00"></script>
-    <script data-cfasync="false" src="js/chassis.js?v=13.00"></script>
-    <script data-cfasync="false" src="js/radar-sidebar.js?v=13.00"></script>
-    <script data-cfasync="false" src="js/radar-scope.js?v=13.00"></script>
-    <script data-cfasync="false" src="js/ingestion.js?v=13.00"></script>
-    <script data-cfasync="false" src="js/audio-engine.js?v=13.00"></script>
-    <script data-cfasync="false" src="app.js?v=13.00"></script>
+    <script data-cfasync="false" src="js/utils.js?v=31.00"></script>
+    <script data-cfasync="false" src="js/warbird-db.js?v=31.00"></script>
+    <script data-cfasync="false" src="js/aircraft.js?v=31.00"></script>
+    <script data-cfasync="false" src="js/chassis.js?v=31.00"></script>
+    <script data-cfasync="false" src="js/radar-sidebar.js?v=31.00"></script>
+    <script data-cfasync="false" src="js/radar-scope.js?v=31.00"></script>
+    <script data-cfasync="false" src="js/ingestion.js?v=31.00"></script>
+    <script data-cfasync="false" src="js/audio-engine.js?v=31.00"></script>
+    <script data-cfasync="false" src="app.js?v=31.00"></script>
 </body>
 </html>
