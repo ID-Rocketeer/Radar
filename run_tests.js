@@ -377,6 +377,8 @@ scripts.forEach(code => {
 // Disable background audio initialization in console context
 context.audioCtx = null;
 context.sweepActive = false;
+context.fs = fs;
+context.require = require;
 
 // 3. EXECUTE TESTS AFTER ASYNC DOMContentLoaded INITIALIZATION COMPLETES
 setTimeout(() => {

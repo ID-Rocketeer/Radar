@@ -441,6 +441,38 @@ function executeRadarUnitTestSuite(context) {
     } catch (e) {
         assert("TEST SUITE 14 EXCEPTION", false, e.stack || e.message);
     }
+
+    // -------------------------------------------------------------
+    // TEST SUITE 15: HTML DOM UNIQUENESS & PORTRAIT LAYOUT GUARD
+    // -------------------------------------------------------------
+    try {
+        const nodeFs = (typeof fs !== 'undefined' && fs.readFileSync ? fs : null) || (typeof require === 'function' ? require('fs') : null);
+        if (nodeFs && nodeFs.readFileSync) {
+            const htmlContent = nodeFs.readFileSync('index.html', 'utf8');
+            
+            const checkUniqueId = (id) => {
+                const regex = new RegExp(`id="${id}"`, 'g');
+                const matches = htmlContent.match(regex);
+                return matches ? matches.length : 0;
+            };
+
+            const checkUniqueClass = (className) => {
+                const regex = new RegExp(`class="${className}"`, 'g');
+                const matches = htmlContent.match(regex);
+                return matches ? matches.length : 0;
+            };
+
+            context.assert("HTML DOM Guard: Single #map element", checkUniqueId('map') === 1, "Exactly one #map element present in index.html.");
+            context.assert("HTML DOM Guard: Single #target-list element", checkUniqueId('target-list') === 1, "Exactly one #target-list element present in index.html.");
+            context.assert("HTML DOM Guard: Single #telemetry-display element", checkUniqueId('telemetry-display') === 1, "Exactly one #telemetry-display element present in index.html.");
+            context.assert("HTML DOM Guard: Single #help-modal element", checkUniqueId('help-modal') === 1, "Exactly one #help-modal element present in index.html.");
+            context.assert("HTML DOM Guard: Single #debug-modal element", checkUniqueId('debug-modal') === 1, "Exactly one #debug-modal element present in index.html.");
+            context.assert("HTML DOM Guard: Single brand-label-strip element", checkUniqueClass('brand-label-strip') === 1, "Exactly one brand-label-strip element present in index.html.");
+            context.assert("HTML DOM Guard: Single radar-viewport element", checkUniqueClass('radar-viewport') === 1, "Exactly one radar-viewport element present in index.html.");
+        }
+    } catch (e) {
+        context.assert("TEST SUITE 15 EXCEPTION", false, e.stack || e.message);
+    }
 }
 
 if (typeof exports !== 'undefined') {
