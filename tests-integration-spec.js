@@ -392,6 +392,44 @@ function executeRadarIntegrationTestSuite(context) {
     } catch (e) {
         assert("TEST SUITE 13 EXCEPTION", false, e.message);
     }
+
+    // ==========================================================
+    // TEST SUITE 14: Weather Radar (WX) Integration Tests
+    // ==========================================================
+    try {
+        const wxBtn = context.document.getElementById('wx-toggle');
+        if (wxBtn) {
+            // Force reset state to false for consistent test starting point
+            context.weatherEnabled = false;
+            wxBtn.classList.remove('active');
+            if (context.radarScope) {
+                context.radarScope.setWeatherEnabled(false);
+            }
+
+            // Click once -> switches to true (NEXRAD)
+            wxBtn.click();
+            assert("WX Button Click Enables Weather Overlay", context.weatherEnabled === true && wxBtn.classList.contains('active'), "Clicking WX button toggled state to enabled and illuminated.");
+
+            // Click again -> switches back to false (OFF)
+            wxBtn.click();
+            assert("WX Button Click Disables Weather Overlay", context.weatherEnabled === false && !wxBtn.classList.contains('active'), "Clicking WX button toggled state to disabled.");
+
+            // Switch to US location and check WX provider
+            if (context.radarScope) {
+                context.radarScope.setWeatherEnabled(true);
+                context.radarScope.setCenter(30.19453, -97.66987); // Austin, TX (in US)
+                assert("WX Provider inside US is IEM", context.radarScope.weatherProvider === 'iem', "US coordinates correctly load from IEM NEXRAD WMS.");
+
+                // Switch to International location and check WX provider
+                context.radarScope.setCenter(51.5074, -0.1278); // London, UK (outside US)
+                assert("WX Provider outside US falls back to RainViewer", context.radarScope.weatherProvider === 'rainviewer', "International coordinates correctly fall back to RainViewer.");
+            }
+        } else {
+            assert("WX Button exists in DOM", false, "#wx-toggle not found in DOM.");
+        }
+    } catch (e) {
+        assert("TEST SUITE 14 EXCEPTION", false, e.stack || e.message);
+    }
 }
 
 if (typeof exports !== 'undefined') {

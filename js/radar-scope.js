@@ -31,6 +31,13 @@ var RadarScope = class RadarScope {
         this.tempRange = 0;
         this.isProgrammaticChange = false;
         this.sweepMarker = null;
+
+        // Weather Radar state properties
+        this.weatherEnabled = false;
+        this.weatherLayer = null;
+        this.weatherProvider = null;
+        this.weatherFetchId = 0;
+        this.weatherUpdateTimeout = null;
     }
 
     init() {
@@ -50,6 +57,9 @@ var RadarScope = class RadarScope {
             renderer: L.svg({ padding: 0 })
         }).setView([this.homeLat, this.homeLon], 8);
 
+
+        this.map.createPane('weatherPane', this.map.getPane('mapPane'));
+        this.map.getPane('weatherPane').style.zIndex = 250;
 
         this.map.createPane('sweepPane', this.map.getPane('mapPane'));
         this.map.getPane('sweepPane').style.zIndex = 450;
@@ -80,6 +90,37 @@ var RadarScope = class RadarScope {
         const marker = L.marker([this.homeLat, this.homeLon], { icon: homeIcon, interactive: false });
         marker.addTo(this.map);
         this.crosshair = marker;
+
+        this.map.on('dragstart', () => {
+            if (this.weatherUpdateTimeout) {
+                clearTimeout(this.weatherUpdateTimeout);
+                this.weatherUpdateTimeout = null;
+            }
+            if (this.weatherLayer) {
+                this.map.removeLayer(this.weatherLayer);
+                this.weatherLayer = null;
+            }
+            // Clear active provider so the next moveend is forced to rebuild/reload it
+            this.weatherProvider = null;
+        });
+
+        this.map.on('moveend', () => {
+            if (this.isProgrammaticChange) return;
+            if (!this.weatherEnabled) return;
+
+            if (this.weatherUpdateTimeout) {
+                clearTimeout(this.weatherUpdateTimeout);
+            }
+
+            this.weatherUpdateTimeout = setTimeout(() => {
+                this.updateWeatherLayer();
+                this.weatherUpdateTimeout = null;
+            }, 500);
+        });
+
+        if (this.weatherEnabled) {
+            this.updateWeatherLayer();
+        }
     }
 
     drawRangeRings() {
@@ -134,6 +175,10 @@ var RadarScope = class RadarScope {
         // Fire coordinate update callback if registered
         if (this.onCenterChanged) {
             this.onCenterChanged(lat, lon);
+        }
+
+        if (this.weatherEnabled) {
+            this.updateWeatherLayer();
         }
     }
 
@@ -356,6 +401,8 @@ var RadarScope = class RadarScope {
         document.getElementById('location-select-btn').style.display = 'none';
         const classBBtn = document.getElementById('class-b-toggle');
         if (classBBtn) classBBtn.style.display = 'none';
+        const wxBtn = document.getElementById('wx-toggle');
+        if (wxBtn) wxBtn.style.display = 'none';
         document.getElementById('location-locate-btn').style.display = 'inline-block';
         document.getElementById('location-confirm-btn').style.display = 'inline-block';
         document.getElementById('location-cancel-btn').style.display = 'inline-block';
@@ -540,6 +587,8 @@ var RadarScope = class RadarScope {
         document.getElementById('location-select-btn').style.display = 'inline-block';
         const classBBtn = document.getElementById('class-b-toggle');
         if (classBBtn) classBBtn.style.display = 'inline-block';
+        const wxBtn = document.getElementById('wx-toggle');
+        if (wxBtn) wxBtn.style.display = 'inline-block';
         document.getElementById('location-locate-btn').style.display = 'none';
         document.getElementById('location-confirm-btn').style.display = 'none';
         document.getElementById('location-cancel-btn').style.display = 'none';
@@ -661,6 +710,10 @@ var RadarScope = class RadarScope {
             sweepEl.style.display = 'block';
             callbacks.updateSweepSize();
         }
+
+        if (this.weatherEnabled) {
+            this.updateWeatherLayer();
+        }
     }
 
     handleGPSLocate(callbacks) {
@@ -748,5 +801,136 @@ var RadarScope = class RadarScope {
         };
 
         performLocate(true);
+    }
+
+    isCenterInCONUS(lat, lon) {
+        return lat >= 24.0 && lat <= 50.0 && lon >= -125.0 && lon <= -66.9;
+    }
+
+    setupTileRetry(layer) {
+        if (!layer) return;
+        layer.on('tileerror', (e) => {
+            const tile = e.tile;
+            if (!tile) return;
+            if (!tile._retryCount) tile._retryCount = 0;
+            if (tile._retryCount < 3) {
+                tile._retryCount++;
+                const coords = e.coords;
+                const tileUrl = layer.getTileUrl(coords);
+                setTimeout(() => {
+                    tile.src = tileUrl + (tileUrl.indexOf('?') > -1 ? '&' : '?') + 'retry=' + Date.now();
+                }, 2000);
+            }
+        });
+    }
+
+    updateWeatherLayer() {
+        if (!this.map) return;
+
+        // Clean up any existing layer first if weather is disabled
+        if (!this.weatherEnabled) {
+            if (this.weatherLayer) {
+                this.map.removeLayer(this.weatherLayer);
+                this.weatherLayer = null;
+            }
+            this.weatherProvider = null;
+            return;
+        }
+
+        const currentZoom = this.map.getZoom();
+        if (currentZoom < 4) {
+            if (this.weatherLayer) {
+                this.map.removeLayer(this.weatherLayer);
+                this.weatherLayer = null;
+            }
+            this.weatherProvider = null;
+            return;
+        }
+
+        const center = this.map.getCenter();
+        const activeLat = this.isSelectionMode ? center.lat : this.homeLat;
+        const activeLon = this.isSelectionMode ? center.lng : this.homeLon;
+        const insideUS = this.isCenterInCONUS(activeLat, activeLon);
+        const targetProvider = insideUS ? 'iem' : 'rainviewer';
+
+        if (targetProvider === this.weatherProvider && this.weatherLayer) {
+            return; // Already active and set up!
+        }
+
+        // Remove old layer before creating a new one
+        if (this.weatherLayer) {
+            this.map.removeLayer(this.weatherLayer);
+            this.weatherLayer = null;
+        }
+
+        this.weatherProvider = targetProvider;
+        console.log(`[WEATHER RADAR] Active source: ${targetProvider === 'iem' ? 'IEM (ISU) NEXRAD WMS' : 'RainViewer Global Composite'}`);
+
+        if (targetProvider === 'iem') {
+            const wmsUrl = "https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi";
+            console.log(`[WEATHER RADAR] Requesting WMS layers from: ${wmsUrl}`);
+            this.weatherLayer = L.tileLayer.wms(wmsUrl, {
+                layers: 'nexrad-n0r-900913',
+                format: 'image/png',
+                transparent: true,
+                opacity: 0.10,
+                pane: 'weatherPane',
+                minZoom: 4,
+                attribution: 'Weather data © IEM Nexrad'
+            });
+            this.setupTileRetry(this.weatherLayer);
+            this.weatherLayer.addTo(this.map);
+        } else {
+            this.weatherFetchId++;
+            const currentFetchId = this.weatherFetchId;
+
+            const globalObject = (typeof window !== 'undefined') ? window : (typeof global !== 'undefined' ? global : {});
+            const fetchFunc = globalObject.fetch;
+
+            const fetchPromise = (typeof fetchFunc === 'function') 
+                ? fetchFunc('https://api.rainviewer.com/public/weather-maps.json')
+                : Promise.reject(new Error("fetch undefined"));
+
+            fetchPromise
+                .then(res => res.json())
+                .then(data => {
+                    if (this.weatherFetchId !== currentFetchId || !this.weatherEnabled) return;
+
+                    const pastRadars = data && data.radar && data.radar.past;
+                    if (pastRadars && pastRadars.length > 0) {
+                        const latestPath = pastRadars[pastRadars.length - 1].path;
+                        const host = data.host || 'https://tilecache.rainviewer.com';
+                        const tileUrl = `${host}${latestPath}/256/{z}/{x}/{y}/6/1_1.png`;
+                        console.log(`[WEATHER RADAR] Requesting RainViewer tiles from: ${tileUrl}`);
+                        
+                        if (this.weatherLayer) {
+                            this.map.removeLayer(this.weatherLayer);
+                        }
+                        
+                        this.weatherLayer = L.tileLayer(tileUrl, {
+                            opacity: 0.10,
+                            pane: 'weatherPane',
+                            minZoom: 4,
+                            maxNativeZoom: 7,
+                            maxZoom: 20,
+                            attribution: 'Weather data from RainViewer'
+                        });
+                        this.setupTileRetry(this.weatherLayer);
+                        this.weatherLayer.addTo(this.map);
+                    }
+                })
+                .catch(err => {
+                    console.warn("Weather radar fetch failed or aborted:", err.message);
+                });
+        }
+    }
+
+    setWeatherEnabled(enabled) {
+        this.weatherEnabled = enabled;
+        if (this.weatherUpdateTimeout) {
+            clearTimeout(this.weatherUpdateTimeout);
+            this.weatherUpdateTimeout = null;
+        }
+        this.updateWeatherLayer();
     }
 };

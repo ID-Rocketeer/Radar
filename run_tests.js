@@ -81,6 +81,14 @@ const mockElement = (id = '', classes = []) => {
         addEventListener(type, fn) {
             this.listeners = this.listeners || [];
             this.listeners.push(fn);
+        },
+        click() {
+            const listeners = this.listeners || [];
+            listeners.forEach(fn => {
+                try {
+                    fn({ type: 'click', target: this });
+                } catch(e) {}
+            });
         }
     };
     if (id) {
@@ -219,8 +227,20 @@ global.L = {
         };
         return m;
     },
-    tileLayer() {
-        return { addTo() {} };
+    tileLayer(url, options) {
+        const t = {
+            url,
+            options,
+            addTo(map) {
+                if (map && typeof map.addLayer === 'function') {
+                    map.addLayer(this);
+                }
+                return this;
+            },
+            remove() { return this; },
+            on() { return this; }
+        };
+        return t;
     },
     divIcon(opts) {
         return { html: opts ? opts.html : '' };
@@ -253,6 +273,22 @@ global.L = {
     svg() {
         return {};
     }
+};
+
+global.L.tileLayer.wms = function(url, options) {
+    const t = {
+        url,
+        options,
+        addTo(map) {
+            if (map && typeof map.addLayer === 'function') {
+                map.addLayer(this);
+            }
+            return this;
+        },
+        remove() { return this; },
+        on() { return this; }
+    };
+    return t;
 };
 
 global.ResizeObserver = class { observe() {} };

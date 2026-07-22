@@ -473,6 +473,67 @@ function executeRadarUnitTestSuite(context) {
     } catch (e) {
         context.assert("TEST SUITE 15 EXCEPTION", false, e.stack || e.message);
     }
+
+    // -------------------------------------------------------------
+    // TEST SUITE 16: WEATHER RADAR (WX) OVERLAY UNIT TESTS
+    // -------------------------------------------------------------
+    try {
+        const testScope = new context.RadarScope('fake_map_container_wx', { homeLat: 30, homeLon: -90, rangeNm: 40 });
+        
+        // 16.1 Test isCenterInCONUS
+        context.assert("isCenterInCONUS returns true for Austin, TX", testScope.isCenterInCONUS(30.19453, -97.66987) === true, "Austin is inside CONUS.");
+        context.assert("isCenterInCONUS returns false for Shannon, NZ", testScope.isCenterInCONUS(-40.5472, 175.4107) === false, "Shannon is outside CONUS.");
+        context.assert("isCenterInCONUS returns false for London, UK", testScope.isCenterInCONUS(51.5074, -0.1278) === false, "London is outside CONUS.");
+
+        // 16.2 Test weatherPane creation on map init
+        let createdPaneName = null;
+        const panes = {};
+        const originalLMap = context.L.map;
+        context.L.map = (id, options) => {
+            const m = originalLMap(id, options);
+            m.createPane = (name) => {
+                if (name === 'weatherPane') {
+                    createdPaneName = name;
+                }
+                panes[name] = { style: {} };
+                return panes[name];
+            };
+            m.getPane = (name) => {
+                if (!panes[name]) panes[name] = { style: {} };
+                return panes[name];
+            };
+            return m;
+        };
+        testScope.init();
+        context.L.map = originalLMap; // restore
+        context.assert("init creates weatherPane with zIndex 250", createdPaneName === 'weatherPane' && panes['weatherPane'] && panes['weatherPane'].style.zIndex === 250, "weatherPane initialized at correct z-index layer.");
+
+        // 16.3 Test setWeatherEnabled modifies state and sets up layer
+        let addedLayer = null;
+        testScope.map = {
+            createPane: () => mockPane,
+            getPane: () => mockPane,
+            setView: () => {},
+            getZoom: () => 10,
+            getCenter: () => ({ lat: testScope.homeLat, lng: testScope.homeLon }),
+            hasLayer: () => false,
+            addLayer: (layer) => { addedLayer = layer; },
+            removeLayer: () => {}
+        };
+        
+        // Enable inside US
+        testScope.homeLat = 30.19453;
+        testScope.homeLon = -97.66987;
+        testScope.setWeatherEnabled(true);
+        context.assert("setWeatherEnabled(true) inside US sets provider to iem", testScope.weatherEnabled === true && testScope.weatherProvider === 'iem', "IEM provider resolved inside US.");
+        context.assert("setWeatherEnabled(true) inside US adds WMS tileLayer with 10% opacity", addedLayer !== null && addedLayer.options.layers === 'nexrad-n0r-900913' && addedLayer.options.opacity === 0.10, "IEM WMS layer attached with 10% opacity.");
+
+        // Disable weather
+        testScope.setWeatherEnabled(false);
+        context.assert("setWeatherEnabled(false) removes active weatherLayer", testScope.weatherEnabled === false && testScope.weatherLayer === null && testScope.weatherProvider === null, "Weather layer successfully torn down.");
+    } catch (e) {
+        context.assert("TEST SUITE 16 EXCEPTION", false, e.stack || e.message);
+    }
 }
 
 if (typeof exports !== 'undefined') {

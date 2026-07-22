@@ -45,6 +45,10 @@ if (isNaN(HOME_LON)) HOME_LON = defaultLon;
 HOME_LAT = normalizeLat(HOME_LAT);
 HOME_LON = normalizeLon(HOME_LON);
 
+// Weather aliases: wx, weather
+const rawWx = urlParams.get('wx') || urlParams.get('weather');
+var weatherEnabled = (rawWx === 'true' || rawWx === '1');
+
 // Validate and cap range. The Airplanes.live API limits point queries to 250 NM.
 // We set a minimum query/ring range of 2 NM to maintain data density limits,
 // although the visual map zoom is allowed to go closer (up to level 20).
@@ -57,7 +61,8 @@ if (isNaN(RANGE_NM)) {
 // Sync address bar URL with normalized coordinates on load
 try {
     const formattedRng = RANGE_NM < 10 ? RANGE_NM.toFixed(3) : RANGE_NM.toFixed(1);
-    const initialNormalizedUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${formattedRng}`;
+    const wxParam = weatherEnabled ? '&wx=1' : '';
+    const initialNormalizedUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${formattedRng}${wxParam}`;
     window.history.replaceState({ path: initialNormalizedUrl }, '', initialNormalizedUrl);
 } catch (historyError) {
     console.warn("Silent fallback: window.history.replaceState is blocked in this browser context (e.g. file:/// URL).", historyError);
@@ -234,6 +239,7 @@ function initializeRadarSystem() {
     });
     radarSidebar = new RadarSidebar('target-list', 'telemetry-display', 'target-count');
     radarScope = new RadarScope('map', { homeLat: HOME_LAT, homeLon: HOME_LON, rangeNm: RANGE_NM });
+    radarScope.setWeatherEnabled(weatherEnabled);
     radarScope.onCenterChanged = (lat, lon) => {
         HOME_LAT = lat;
         HOME_LON = lon;
@@ -262,7 +268,8 @@ function initializeRadarSystem() {
         // Update URL parameters silently
         try {
             const formattedRng = RANGE_NM < 10 ? RANGE_NM.toFixed(3) : RANGE_NM.toFixed(1);
-            const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${formattedRng}`;
+            const wxParam = weatherEnabled ? '&wx=1' : '';
+            const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${formattedRng}${wxParam}`;
             window.history.replaceState(null, '', newUrl);
         } catch (historyError) {
             console.warn("Silent fallback: window.history.replaceState is blocked in this browser context (e.g. file:/// URL).", historyError);
@@ -425,7 +432,8 @@ async function autoDetectLocationAndInit() {
             // Update URL silently to reflect IP location
             try {
                 const formattedRng = RANGE_NM < 10 ? RANGE_NM.toFixed(3) : RANGE_NM.toFixed(1);
-                const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${formattedRng}`;
+                const wxParam = weatherEnabled ? '&wx=1' : '';
+                const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${formattedRng}${wxParam}`;
                 window.history.replaceState(null, '', newUrl);
             } catch (historyError) {
                 console.warn("Silent fallback: window.history.replaceState is blocked in this browser context (e.g. file:/// URL).", historyError);
@@ -648,6 +656,37 @@ function initControls() {
 
             // Refresh target list sidebar
             updateTargetList();
+        });
+    }
+
+    // Weather Radar (WX) Toggle Button
+    const wxBtn = document.getElementById('wx-toggle');
+    
+    function updateWxButtonUI() {
+        if (!wxBtn) return;
+        wxBtn.classList.toggle('active', weatherEnabled);
+    }
+    
+    if (wxBtn) {
+        updateWxButtonUI();
+        
+        wxBtn.addEventListener('click', () => {
+            weatherEnabled = !weatherEnabled;
+            updateWxButtonUI();
+            
+            if (radarScope) {
+                radarScope.setWeatherEnabled(weatherEnabled);
+            }
+            
+            // Update URL parameter silently
+            try {
+                const formattedRng = RANGE_NM < 10 ? RANGE_NM.toFixed(3) : RANGE_NM.toFixed(1);
+                const wxParam = weatherEnabled ? '&wx=1' : '';
+                const newUrl = `${window.location.pathname}?lat=${HOME_LAT.toFixed(5)}&lon=${HOME_LON.toFixed(5)}&rng=${formattedRng}${wxParam}`;
+                window.history.replaceState(null, '', newUrl);
+            } catch (historyError) {
+                console.warn("Silent fallback: window.history.replaceState is blocked in this browser context (e.g. file:/// URL).", historyError);
+            }
         });
     }
 

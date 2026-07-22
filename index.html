@@ -115,8 +115,11 @@
                             <div id="addr-preview-info" class="addr-preview-info" style="display: none; grid-column: span 3;">// PROPOSED LOCATION...</div>
                         </div>
                         <div class="panel-controls location-controls" style="margin-top: 6px;">
-                            <button class="retro-btn" id="location-select-btn" style="grid-column: span 2; border-color: rgba(0, 255, 85, 0.35);" title="Calibrate home station coordinates, search address, or sweep range">
-                                SELECT LOCATION
+                            <button class="retro-btn" id="location-select-btn" style="border-color: rgba(0, 255, 85, 0.35);" title="Calibrate home station coordinates, search address, or sweep range">
+                                LOCATION
+                            </button>
+                            <button class="retro-btn" id="wx-toggle" title="Toggle and cycle weather radar color palettes (OFF / NEXRAD / Universal Blue / TITAN / The Weather Channel / Rainbow / Dark Sky)">
+                                WX
                             </button>
                             <button class="retro-btn" id="class-b-toggle" style="grid-column: span 1;" title="Toggle visibility of Class B targets (gliders, balloons, UAVs)">
                                 CLASS B
@@ -282,7 +285,7 @@
                             <li><strong>TRAILS:</strong> Toggles historical breadcrumb tracking on the scope.</li>
                             <li><strong>LOW:</strong> Filters out all high-altitude cruising traffic above the Transition Altitude of 18,000 feet (FL180), displaying only local air traffic.</li>
                             <li><strong>FULLSCREEN:</strong> Expands the radar display area to fill the screen bounds.</li>
-                            <li><strong>CLASS B:</strong> Toggles visibility of Class B targets (gliders, balloons, UAVs) highlighted on the scope in distinct yellow.</li>
+                            <li><strong>CLASS B:</strong> Toggles highlighting of Class B targets (gliders, balloons, UAVs) on the scope in distinct yellow.</li>
                             <li><strong>SOUND TOGGLE (🔇/🔊):</strong> Located in the sidebar header. Toggles a simulated 3D room soundscape generating ambient mains hum, cooling fans, computer memory whir, air conditioning, and overhead ballast rattle echoing inside a concrete bunker room.</li>
                         </ul>
                     </li>

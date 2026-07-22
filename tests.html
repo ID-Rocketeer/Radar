@@ -1,334 +1,358 @@
+<!--
+    Copyright (C) 2026 Steven P. Collins
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tactical Radar Scope - Test Suite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Prevent Cache -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>PHOSPHOR RADAR SYSTEM // TYPE-1090</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=1.1">
+    <!-- Google Fonts: Roboto Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <style>
-        body {
-            background-color: #031005;
-            color: #00ff33;
-            font-family: 'Courier New', Courier, monospace;
-            padding: 20px;
-            margin: 0;
-            text-shadow: 0 0 4px #00ff33;
-        }
-        h1 {
-            border-bottom: 2px solid #00ff33;
-            padding-bottom: 10px;
-            text-shadow: 0 0 8px #00ff33;
-        }
-        .stats {
-            margin: 20px 0;
-            padding: 15px;
-            border: 1px solid #00ff33;
-            background-color: rgba(0, 255, 51, 0.05);
-            display: inline-block;
-        }
-        .test-list {
-            margin-top: 20px;
-        }
-        .test-case {
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px dashed rgba(0, 255, 51, 0.3);
-            border-radius: 4px;
-        }
-        .test-case.pass {
-            border-left: 5px solid #00ff33;
-            background-color: rgba(0, 255, 51, 0.02);
-        }
-        .test-case.fail {
-            border-left: 5px solid #ff3300;
-            color: #ff3300;
-            text-shadow: 0 0 4px #ff3300;
-            border-color: #ff3300;
-            background-color: rgba(255, 51, 0, 0.02);
-        }
-        .test-case.pending {
-            border-left: 5px solid #ffcc00;
-            color: #ffcc00;
-            text-shadow: 0 0 4px #ffcc00;
-            border-color: #ffcc00;
-            background-color: rgba(255, 204, 0, 0.02);
-        }
-        .test-name {
-            font-weight: bold;
-        }
-        .test-message {
-            margin-top: 5px;
-            font-size: 0.9em;
-            opacity: 0.8;
-        }
-        /* Hidden mock DOM container positioned off-screen to ensure Leaflet renders markers */
-        #mock-dom-container {
-            position: absolute;
-            left: -9999px;
-            top: -9999px;
-            width: 100px;
-            height: 100px;
-        }
-    </style>
-    <!-- Leaflet JS -->
-    <script data-cfasync="false" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script>
-        // MOCK BROWSER GLOBALS & PREVENT LIVE NETWORK POLLS BEFORE APP LOADS
-        window.fetch = function() {
-            return Promise.resolve({
-                ok: true,
-                json: () => Promise.resolve({ ac: [] })
-            });
-        };
-        
-        // Mock localStorage to ensure CodeRed state is clean
-        window.localStorage.setItem('codeRedActive', 'false');
-
-        // Mock Web Audio Context to prevent actual hardware allocation
-        class MockAudioContext {
-            constructor() {
-                this.state = 'suspended';
-                this.destination = {};
-                this.sampleRate = 44100;
-            }
-            createGain() {
-                return {
-                    gain: { setValueAtTime() {}, linearRampToValueAtTime() {} },
-                    connect() {}
-                };
-            }
-            createOscillator() {
-                return {
-                    frequency: { setValueAtTime() {} },
-                    connect() {},
-                    start() {},
-                    type: 'sine'
-                };
-            }
-            createBiquadFilter() {
-                return {
-                    frequency: { setValueAtTime() {} },
-                    Q: { setValueAtTime() {} },
-                    connect() {},
-                    type: 'bandpass'
-                };
-            }
-            createPanner() {
-                return {
-                    panningModel: 'HRTF',
-                    distanceModel: 'inverse',
-                    refDistance: 1,
-                    maxDistance: 100,
-                    rolloffFactor: 1,
-                    positionX: { setValueAtTime() {} },
-                    positionY: { setValueAtTime() {} },
-                    positionZ: { setValueAtTime() {} },
-                    connect() {}
-                };
-            }
-            createConvolver() {
-                return {
-                    buffer: null,
-                    connect() {}
-                };
-            }
-            createBuffer() {
-                return {
-                    getChannelData() { return new Float32Array(100); }
-                };
-            }
-            createBufferSource() {
-                return {
-                    buffer: null,
-                    connect() {},
-                    start() {},
-                    stop() {},
-                    loop: false
-                };
-            }
-            resume() {
-                this.state = 'running';
-                return Promise.resolve();
-            }
-            suspend() {
-                this.state = 'suspended';
-                return Promise.resolve();
-            }
-        }
-        window.AudioContext = MockAudioContext;
-        window.webkitAudioContext = MockAudioContext;
-    </script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="index.css?v=11.00">
 </head>
 <body>
+    <div class="sidebar-base-plate">
+        <!-- Left Sidebar Column Wrapper -->
+        <div class="sidebar-column">
+            <!-- Console Top Sticker (pasted on base plate) -->
+            <div class="sidebar-top-label-container">
+                <div class="gpl-label-wrapper">
+                    <!-- Steven P. Collins Copyright & GPLv3 Sticker -->
+                    <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" class="gpl-paper-label" title="GNU GPLv3 License">
+                        <div class="gpl-label-title">Copyright &copy; 2026 Steven P. Collins</div>
+                        <div class="gpl-label-subtitle">Licensed under GNU GPLv3</div>
+                    </a>
+                    <div class="scotch-tape tape-left"></div>
+                    <div class="scotch-tape tape-right"></div>
+                </div>
+            </div>
 
-    <h1>SYS_DIAGNOSTIC: TEST SUITE RUNNER</h1>
-    <div class="stats" id="stats">
-        TOTAL RUNS: <span id="total-count">0</span> | 
-        PASSED: <span id="pass-count">0</span> | 
-        FAILED: <span id="fail-count">0</span> |
-        PENDING: <span id="pending-count">0</span>
+            <!-- Sidebar Command Panel Bezel -->
+            <aside class="sidebar-bezel">
+                <!-- Sidebar Mounting Screws -->
+                <div class="mounting-screw sidebar-screw tl" style="--slot-rot: 34deg;"></div>
+                <div class="mounting-screw sidebar-screw tr" style="--slot-rot: 112deg;"></div>
+                <div class="mounting-screw sidebar-screw ml" style="--slot-rot: 75deg;"></div>
+                <div class="mounting-screw sidebar-screw mr" style="--slot-rot: 142deg;"></div>
+                <div class="mounting-screw sidebar-screw bl" style="--slot-rot: 18deg;"></div>
+                <div class="mounting-screw sidebar-screw br" style="--slot-rot: 88deg;"></div>
+
+                <!-- Sidebar Display Data Panel (Glass) -->
+                <div class="sidebar-glass-panel">
+                    <div class="sidebar-header">
+                        <div class="glitch-title" data-text="PHOSPHOR RADAR">PHOSPHOR RADAR</div>
+                        <div class="system-status">
+                            <span class="status-indicator"></span>
+                            <span class="status-text">SYS_STATUS: STANDBY</span>
+                        </div>
+                        <button class="sound-btn" id="sound-btn" title="Toggle audio system">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 13px; height: 13px; display: block;">
+                                <path id="sound-speaker" d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                                <path id="sound-waves" d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" style="display: none;"></path>
+                                <path id="sound-mute" d="M23 9l-6 6 M17 9l6 6"></path>
+                            </svg>
+                        </button>
+                        <button class="help-btn" id="help-btn" title="Operations Manual">?</button>
+                    </div>
+
+                    <!-- Radar Configuration Panel -->
+                    <section class="sidebar-panel">
+                        <h2 class="panel-title">// CONFIGURATION</h2>
+                        <div class="control-grid">
+                            <div class="control-label">LATITUDE:</div>
+                            <div class="control-value">
+                                <input type="text" id="val-lat" class="control-input" readonly value="30.19453" autocomplete="off" spellcheck="false">
+                            </div>
+                            <div class="control-label">LONGITUDE:</div>
+                            <div class="control-value">
+                                <input type="text" id="val-lon" class="control-input" readonly value="-97.66987" autocomplete="off" spellcheck="false">
+                            </div>
+                            <div class="control-label">RANGE:</div>
+                            <div class="control-value range-input-container">
+                                <input type="text" id="val-range" class="control-input" readonly value="250" autocomplete="off" spellcheck="false">
+                                <span class="range-unit">NM</span>
+                            </div>
+                        </div>
+                        <div class="panel-controls" id="default-panel-controls">
+                            <button class="retro-btn active" id="trail-toggle" title="Toggle target historical breadcrumbs">
+                                TRAILS
+                            </button>
+                            <button class="retro-btn" id="low-altitude-toggle" title="Filter for traffic below 18,000 ft MSL (Transition Altitude)">
+                                LOW
+                            </button>
+                            <button class="retro-btn" id="fullscreen-toggle" title="Toggle browser fullscreen view">
+                                FULLSCREEN
+                            </button>
+                        </div>
+                        <div class="panel-controls location-search-panel" id="location-search-panel" style="display: none;">
+                            <input type="text" id="addr-search-input" class="control-input addr-input" style="grid-column: span 2;" placeholder="Search address, zip, or airport (e.g. FAB)..." autocomplete="off" spellcheck="false" />
+                            <button class="retro-btn btn-search-go" id="addr-search-go-btn" style="grid-column: span 1;" title="Search for location">GO</button>
+                            <div id="addr-preview-info" class="addr-preview-info" style="display: none; grid-column: span 3;">// PROPOSED LOCATION...</div>
+                        </div>
+                        <div class="panel-controls location-controls" style="margin-top: 6px;">
+                            <button class="retro-btn" id="location-select-btn" style="border-color: rgba(0, 255, 85, 0.35);" title="Calibrate home station coordinates, search address, or sweep range">
+                                LOCATION
+                            </button>
+                            <button class="retro-btn" id="wx-toggle" title="Toggle and cycle weather radar color palettes (OFF / NEXRAD / Universal Blue / TITAN / The Weather Channel / Rainbow / Dark Sky)">
+                                WX
+                            </button>
+                            <button class="retro-btn" id="class-b-toggle" title="Toggle visibility of Class B targets (gliders, balloons, UAVs)">
+                                CLASS B
+                            </button>
+                            <button class="retro-btn" id="location-locate-btn" style="display: none; color: #d4ff00; border-color: #d4ff00; font-weight: bold;" title="Auto-detect current coordinates using GPS or IP">
+                                LOCATE ME
+                            </button>
+                            <button class="retro-btn" id="location-confirm-btn" style="display: none; color: var(--phosphor-green-bright); border-color: var(--phosphor-green-bright); font-weight: bold;" title="Save coordinates and range presets">
+                                CONFIRM
+                            </button>
+                            <button class="retro-btn" id="location-cancel-btn" style="display: none; color: #ffaa00; border-color: #ffaa00; font-weight: bold;" title="Abort calibration and revert changes">
+                                CANCEL
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- Filters Panel -->
+                    <section class="sidebar-panel">
+                        <h2 class="panel-title">// TARGET FILTERS</h2>
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-filter="all" title="Display all detected air traffic">ALL</button>
+                            <button class="filter-btn" data-filter="mil" title="Display only military air traffic">MILITARY ONLY</button>
+                            <button class="filter-btn" data-filter="commercial" title="Display scheduled airline flights">COMMERCIAL</button>
+                            <button class="filter-btn" data-filter="ga" title="Display general aviation and other light aircraft">GENERAL & OTHER</button>
+                        </div>
+                    </section>
+
+                    <!-- Target List Panel -->
+                    <section class="sidebar-panel target-list-panel">
+                        <h2 class="panel-title">// TARGET LIST (<span id="target-count">0</span> DETECTED)</h2>
+                        <div class="list-headers">
+                            <span class="hdr-callsign">CALLSIGN</span>
+                            <span class="hdr-alt">ALT (FT)</span>
+                            <span class="hdr-spd">SPD (KT)</span>
+                            <span class="hdr-dst">DST (NM)</span>
+                        </div>
+                        <div class="target-list" id="target-list">
+                            <div class="empty-list-message">WAITING FOR RADAR SWEEP...</div>
+                        </div>
+                    </section>
+
+                    <!-- Telemetry Details Panel -->
+                    <section class="sidebar-panel telemetry-panel">
+                        <h2 class="panel-title">// ACTIVE TELEMETRY LOG</h2>
+                        <div class="telemetry-display" id="telemetry-display">
+                            <div class="empty-telemetry">NO TARGET ACQUIRED. SELECT A TARGET FROM THE RADAR SCREEN OR LIST PANEL.</div>
+                        </div>
+                    </section>
+                </div>
+            </aside>
+
+            <div class="sidebar-bottom-label-container">
+                <!-- OSM License Sticker -->
+                <a href="https://www.openstreetmap.org/copyright" target="_blank" class="crusty-paper-label" title="OpenStreetMap Copyright & License">
+                    <div class="crusty-paper-label-border-wrapper">
+                        <div class="crusty-paper-label-inner">
+                            <div class="label-title">OpenStreetMap</div>
+                            <div class="label-subtitle">Copyright and License</div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Radar Viewport (Map) -->
+        <main class="radar-viewport">
+            <div id="map"></div>
+            <!-- Centered Calibration Reticle (Visible only during location selection) -->
+            <div class="radar-reticle">
+                <div class="reticle-ring-outer"></div>
+                <div class="reticle-ring-inner"></div>
+                <div class="reticle-crosshair-h"></div>
+                <div class="reticle-crosshair-v"></div>
+                <div class="reticle-center-dot"></div>
+                <div class="reticle-text">CALIBRATING LOCATION...</div>
+            </div>
+            <!-- Manufacturer Brand Label (Silk-screened on metal bezel) -->
+            <div class="brand-label">
+                <div class="brand-name">Dragon Dreams Software</div>
+                <div class="brand-model">Type-1090 Display Unit</div>
+            </div>
+            <!-- CRT Bezel Panel & 3D Glass Overlays -->
+            <div class="radar-base-plate"></div>
+            <div class="radar-scope-bezel"></div>
+            <div class="radar-glass-edge"></div>
+            <div class="radar-glass-glare">
+                <div class="radar-glass-glare-reflection" id="glass-glare-reflection"></div>
+            </div>
+
+            <!-- Scope Mounting Screws Container (Direct child for layering, z-index 2200) -->
+            <div class="radar-scope-screws-container">
+                <div class="mounting-screw scope-screw s0" style="left: 50%; top: 0%; --slot-rot: 42deg;"></div>
+                <div class="mounting-screw scope-screw s45" style="left: 85.36%; top: 14.64%; --slot-rot: 128deg;"></div>
+                <div class="mounting-screw scope-screw s90" style="left: 100%; top: 50%; --slot-rot: 15deg;"></div>
+                <div class="mounting-screw scope-screw s135" style="left: 85.36%; top: 85.36%; --slot-rot: 93deg;"></div>
+                <div class="mounting-screw scope-screw s180" style="left: 50%; top: 100%; --slot-rot: 67deg;"></div>
+                <div class="mounting-screw scope-screw s225" style="left: 14.64%; top: 85.36%; --slot-rot: 154deg;"></div>
+                <div class="mounting-screw scope-screw s270" style="left: 0%; top: 50%; --slot-rot: 110deg;"></div>
+                <div class="mounting-screw scope-screw s315" style="left: 14.64%; top: 14.64%; --slot-rot: 55deg;"></div>
+            </div>
+            <!-- Custom Zoom Controls overlaying the bezel -->
+            <div class="radar-zoom-control">
+                <button id="zoom-in" title="Zoom In">+</button>
+                <button id="zoom-out" title="Zoom Out">-</button>
+            </div>
+            <!-- CodeRed Pilot Indicator Light (above zoom switches) -->
+            <div class="pilot-light" id="codered-light">
+                <div class="pilot-light-dome"></div>
+            </div>
+        </main>
+        <!-- Mobile Brand Label Strip (flow element below radar scope, stacked portrait only)
+             The desktop .brand-label inside .radar-viewport is hidden in mobile mode.
+             This strip renders in the base plate area below the scope, guaranteed clear. -->
+        <div class="brand-label-strip">
+            <div class="brand-name">Dragon Dreams Software</div>
+            <div class="brand-model">Type-1090 Display Unit</div>
+        </div>
     </div>
 
-    <div class="test-list" id="test-list">
-        <!-- Test cases populated dynamically -->
+    <!-- Help Modal Overlay -->
+    <div class="modal-overlay" id="help-modal">
+        <div class="modal-content sidebar-glass-panel">
+            <div class="modal-header">
+                <span class="modal-title">// SYSTEM OPERATIONS MANUAL</span>
+                <button class="modal-close" id="help-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3>1. RANGE RINGS</h3>
+                <p>The scope displays 6 concentric green dashed range rings centered on the home station. The ring distances are scaled to the current range:</p>
+                <ul>
+                    <li><strong>Ring 1 (10%):</strong> <span id="ring-val-1">--</span> NM</li>
+                    <li><strong>Ring 2 (20%):</strong> <span id="ring-val-2">--</span> NM</li>
+                    <li><strong>Ring 3 (40%):</strong> <span id="ring-val-3">--</span> NM</li>
+                    <li><strong>Ring 4 (60%):</strong> <span id="ring-val-4">--</span> NM</li>
+                    <li><strong>Ring 5 (80%):</strong> <span id="ring-val-5">--</span> NM</li>
+                    <li><strong>Ring 6 (100%):</strong> <span id="ring-val-6">--</span> NM (Scope boundary)</li>
+                </ul>
+                <h3>1. OVERVIEW</h3>
+                <p>Radar Scope is an interactive WebGL-based air traffic surveillance terminal designed to display real-time aircraft telemetry. The system simulates an authentic tactical radar console with rotating sweep lines, target trail decay, range rings, and interactive target telemetry decoding.</p>
+
+                <h3>2. RADAR NAVIGATION &amp; COORDINATES</h3>
+                <p>The radar station operates centered on a specific home coordinate. You can adjust the station center and range view via URL parameters:</p>
+                <div class="code-block">
+                    ?lat=[latitude]&amp;lon=[longitude]&amp;rng=[range_nm]
+                </div>
+                <ul>
+                    <li><strong>Latitude options:</strong> <code>lat</code>, <code>latitude</code> (e.g. <code>30.1945</code>)</li>
+                    <li><strong>Longitude options:</strong> <code>lon</code>, <code>lng</code>, <code>long</code>, <code>longitude</code> (e.g. <code>-97.6699</code>)</li>
+                    <li><strong>Range options:</strong> <code>rng</code>, <code>range</code> (clamped <code>2</code> to <code>250</code> NM)</li>
+                </ul>
+                <p>Presets (Click to load):</p>
+                <ul>
+                    <li><a href="?lat=30.19453&amp;lon=-97.66987&amp;rng=25" target="_self">Austin-Bergstrom (AUS) // 25 NM</a></li>
+                    <li><a href="?lat=38.8512&amp;lon=-77.0377&amp;rng=10" target="_self">Reagan Washington (DCA) // 10 NM</a></li>
+                    <li><a href="?lat=36.236&amp;lon=-115.034&amp;rng=40" target="_self">Nellis AFB (LSV) // 40 NM</a></li>
+                </ul>
+
+                <h3>3. SYSTEM FEATURES</h3>
+                <ul>
+                    <li><strong>CONSOLE STATUS:</strong> The status bezel indicates the application state. On load, the system starts in <code>STANDBY</code> (unlit). Once a connection is successfully established with the telemetry API, it switches to <code>SCANNING</code> (illuminated green). Connection loss triggers <code>LINK ERROR</code> (unlit).</li>
+                    <li><strong>CONFIGURATION TOGGLES:</strong> The configuration panel features three toggle controls whose states are indicated by illumination (illuminated green/amber for ON, dark for OFF):
+                        <ul>
+                            <li><strong>TRAILS:</strong> Toggles historical breadcrumb tracking on the scope.</li>
+                            <li><strong>LOW:</strong> Filters out all high-altitude cruising traffic above the Transition Altitude of 18,000 feet (FL180), displaying only local air traffic.</li>
+                            <li><strong>FULLSCREEN:</strong> Expands the radar display area to fill the screen bounds.</li>
+                            <li><strong>CLASS B:</strong> Toggles visibility of Class B targets (gliders, balloons, UAVs) highlighted on the scope in distinct yellow.</li>
+                            <li><strong>WX (WEATHER RADAR):</strong> Cycles through weather radar overlay color schemes (OFF, NEXRAD, Universal Blue, TITAN, The Weather Channel, Rainbow, Dark Sky) on the map scope. Inside the US, high-resolution NEXRAD data is loaded via IEM; outside the US, global radar tiles are loaded via RainViewer.</li>
+                            <li><strong>SOUND TOGGLE (🔇/🔊):</strong> Located in the sidebar header. Toggles a simulated 3D room soundscape generating ambient mains hum, cooling fans, computer memory whir, air conditioning, and overhead ballast rattle echoing inside a concrete bunker room.</li>
+                        </ul>
+                    </li>
+                    <li><strong>TARGET FILTERS:</strong> Restricts radar sweeps to specific target categories: <code>ALL</code> traffic, <code>MILITARY ONLY</code>, <code>COMMERCIAL</code> airliners, or <code>GENERAL & OTHER</code> aviation.</li>
+                    <li><strong>SELECT LOCATION:</strong> Recalibrates the home station coordinates. Click to enter calibration mode (inputs unlocked, map draggable). You can type new values directly, drag/zoom the map to reposition, or click <strong>LOCATE ME</strong> to auto-locate using your device's GPS, cell-triangulation, or IP address. Click <strong>CONFIRM</strong> to apply the new coordinates or <strong>CANCEL</strong> to abort.</li>
+                    <li><strong>SEARCH LOCATION (SEARCH LOC):</strong> Allows searching for any address, city, zip code, or airport (by IATA/ICAO code like <code>FAB airport</code> or <code>AUS</code>). Selecting a result stages a temporary target crosshair on the map and prompts for <strong>CONFIRM</strong> (replaces station coordinates and URL) or <strong>CANCEL</strong> (reverts to previous station coordinates).</li>
+                </ul>
+
+                <h3>4. DATA & MAP CREDITS</h3>
+                <p>Application UI &amp; software coding &copy; 2026 Steven P. Collins. Licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank">GNU General Public License v3.0</a>.</p>
+                <p>Flight telemetry data is provided by &copy; <a href="https://airplanes.live/" target="_blank">Airplanes.live</a> contributors. Map telemetry baselayers are provided by &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors under the Open Database License (ODbL), and styled by &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>.</p>
+            </div>
+        </div>
     </div>
 
-    <!-- MOCK DOM CONTAINERS TO SATISFY INITIALIZATION SELECTORS IN APP.JS -->
-    <div id="mock-dom-container">
-        <!-- Map and Scope Elements -->
-        <div id="radar-map" style="width: 100px; height: 100px;"></div>
-        <div id="map" style="width: 100px; height: 100px;"></div>
-        <div id="sweep-line"></div>
-        <div id="glass-glare-reflection"></div>
-        
-        <!-- Status & Indicators -->
-        <div class="system-status"><span class="status-text"></span></div>
-        <div class="status-indicator"></div>
-        <div id="codered-light"></div>
-        
-        <!-- UI Coordinates Display -->
-        <div id="val-lat"></div>
-        <div id="val-lon"></div>
-        <div id="val-range"></div>
-        
-        <!-- Control Sidebar Buttons -->
-        <button id="sound-btn"></button>
-        <div id="sound-waves"></div>
-        <div id="sound-mute"></div>
-        <button id="trail-toggle"></button>
-        <button id="low-altitude-toggle"></button>
-        <button id="fullscreen-toggle"></button>
-        <button id="class-b-toggle"></button>
-        
-        <!-- Target List and Telemetry Panel -->
-        <div id="target-list"></div>
-        <div id="target-count"></div>
-        <div id="telemetry-display"></div>
-        
-        <!-- Help Modal -->
-        <button id="help-btn"></button>
-        <div id="help-modal"></div>
-        <button id="help-close"></button>
-        
-        <!-- Debug Modal -->
-        <div id="debug-modal"></div>
-        <button id="debug-close"></button>
-        <table><tbody id="debug-log-body"></tbody></table>
-        
-        <!-- Zoom Controls -->
-        <button id="zoom-in"></button>
-        <button id="zoom-out"></button>
-        
-        <!-- Location Selection Controls -->
-        <button id="location-select-btn"></button>
-        <button id="location-locate-btn"></button>
-        <button id="location-confirm-btn"></button>
-        <button id="location-cancel-btn"></button>
-        
-        <!-- Range Rings -->
-        <div id="ring-val-1"></div>
-        <div id="ring-val-2"></div>
-        <div id="ring-val-3"></div>
-        <div id="ring-val-4"></div>
-        <div id="ring-val-5"></div>
-
-        <!-- Scope Screws (for Easter Egg sequence checks) -->
-        <div class="scope-screw s0"></div>
-        <div class="scope-screw s45"></div>
-        <div class="scope-screw s90"></div>
-        <div class="scope-screw s135"></div>
-        <div class="scope-screw s180"></div>
-        <div class="scope-screw s225"></div>
-        <div class="scope-screw s270"></div>
-        <div class="scope-screw s315"></div>
+    <!-- Connection Debugger Modal -->
+    <div class="modal-overlay" id="debug-modal">
+        <div class="modal-content sidebar-glass-panel" style="max-width: 750px;">
+            <div class="modal-header">
+                <span class="modal-title">// LINK DIAGNOSTICS & SYSTEM HISTOGRAM</span>
+                <button class="modal-close" id="debug-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>The table below logs the 15 most recent telemetry API polling operations. When a <code>LINK ERROR</code> is detected, diagnostics are captured and display update loops are temporarily frozen to preserve telemetry logs for debugging.</p>
+                <div style="overflow-x: auto;">
+                    <table class="debug-log-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp (UTC)</th>
+                                <th>Request URL</th>
+                                <th>Poll Status</th>
+                                <th>Latency</th>
+                                <th>Targets</th>
+                                <th>Diagnostic Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="debug-log-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- LOAD APP.JS MONOLITH (OR SEQUENCED SCRIPTS) -->
-    <script data-cfasync="false" src="js/utils.js?v=13.00_tests"></script>
-    <script data-cfasync="false" src="js/warbird-db.js?v=13.00_tests"></script>
-    <script data-cfasync="false" src="js/aircraft.js?v=13.00_tests"></script>
-    <script data-cfasync="false" src="js/chassis.js?v=13.00_tests"></script>
-    <script data-cfasync="false" src="js/radar-sidebar.js?v=13.00_tests"></script>
-    <script data-cfasync="false" src="js/radar-scope.js?v=13.00_tests"></script>
-    <script data-cfasync="false" src="js/ingestion.js?v=13.00_tests"></script>
-    <script data-cfasync="false" src="js/audio-engine.js?v=13.00_tests"></script>
-    <script data-cfasync="false" src="app.js?v=13.00_tests"></script>
-    <!-- LOAD SHARED TEST SPECIFICATIONS -->
-    <script data-cfasync="false" src="tests-integration-spec.js"></script>
-    <script data-cfasync="false" src="tests-unit-spec.js"></script>
+    <!-- SVG Filter for Torn Paper Edges -->
+    <svg style="position: absolute; width: 0; height: 0; pointer-events: none;" width="0" height="0">
+        <defs>
+            <filter id="paper-tear">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+        </defs>
+    </svg>
 
-    <!-- TEST SUITE RUNNER -->
-    <script>
-        const testList = document.getElementById('test-list');
-        let totalCount = 0;
-        let passCount = 0;
-        let failCount = 0;
-        let pendingCount = 0;
-
-        function updateStats() {
-            document.getElementById('total-count').innerText = totalCount;
-            document.getElementById('pass-count').innerText = passCount;
-            document.getElementById('fail-count').innerText = failCount;
-            document.getElementById('pending-count').innerText = pendingCount;
-        }
-
-        const context = window;
-        context.assert = function(name, condition, message) {
-            totalCount++;
-            const card = document.createElement('div');
-            card.className = 'test-case';
-            
-            if (condition) {
-                passCount++;
-                card.classList.add('pass');
-                card.innerHTML = `<div class="test-name">✔ ${name}</div><div class="test-message">${message || 'Assertion passed successfully.'}</div>`;
-            } else {
-                failCount++;
-                card.classList.add('fail');
-                card.innerHTML = `<div class="test-name">✘ ${name}</div><div class="test-message">FAILED: ${message || 'Assertion failed.'}</div>`;
-            }
-            testList.appendChild(card);
-            updateStats();
-        };
-
-        context.assertPending = function(name, message) {
-            totalCount++;
-            pendingCount++;
-            const card = document.createElement('div');
-            card.className = 'test-case pending';
-            card.innerHTML = `<div class="test-name">○ PENDING FEATURE: ${name}</div><div class="test-message">${message || 'This feature is slated for upcoming refactoring.'}</div>`;
-            testList.appendChild(card);
-            updateStats();
-        };
-
-        // Wait for page load and app initialization to complete
-        window.addEventListener('load', () => {
-            // Stop any active background polling loop to avoid test contamination
-            if (typeof stopPolling === 'function') stopPolling();
-
-            // Disable active audio system in tests to avoid node creation errors
-            if (typeof audioCtx !== 'undefined') audioCtx = null;
-            if (typeof sweepActive !== 'undefined') sweepActive = false;
-
-            console.log("Starting test suites...");
-            
-            // Add a visual header for Unit tests
-            const unitHeader = document.createElement('h2');
-            unitHeader.innerText = "UNIT TESTS";
-            unitHeader.style.borderBottom = "1px solid rgba(0, 255, 51, 0.4)";
-            unitHeader.style.paddingBottom = "5px";
-            testList.appendChild(unitHeader);
-            executeRadarUnitTestSuite(context);
-
-            // Add a visual header for Integration tests
-            const integrationHeader = document.createElement('h2');
-            integrationHeader.innerText = "INTEGRATION TESTS";
-            integrationHeader.style.borderBottom = "1px solid rgba(0, 255, 51, 0.4)";
-            integrationHeader.style.paddingBottom = "5px";
-            integrationHeader.style.marginTop = "30px";
-            testList.appendChild(integrationHeader);
-            executeRadarIntegrationTestSuite(context);
-        });
-    </script>
+    <!-- Leaflet JS -->
+    <script data-cfasync="false" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Application Logic (Sequenced Imports) -->
+    <script data-cfasync="false" src="js/utils.js?v=36.00"></script>
+    <script data-cfasync="false" src="js/warbird-db.js?v=36.00"></script>
+    <script data-cfasync="false" src="js/aircraft.js?v=36.00"></script>
+    <script data-cfasync="false" src="js/chassis.js?v=36.00"></script>
+    <script data-cfasync="false" src="js/radar-sidebar.js?v=36.00"></script>
+    <script data-cfasync="false" src="js/radar-scope.js?v=36.00"></script>
+    <script data-cfasync="false" src="js/ingestion.js?v=36.00"></script>
+    <script data-cfasync="false" src="js/audio-engine.js?v=36.00"></script>
+    <script data-cfasync="false" src="app.js?v=36.00"></script>
 </body>
 </html>
