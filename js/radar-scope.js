@@ -91,6 +91,20 @@ var RadarScope = class RadarScope {
         marker.addTo(this.map);
         this.crosshair = marker;
 
+        const container = this.map.getContainer();
+        if (container) {
+            container.addEventListener('wheel', (e) => {
+                if (this.isSelectionMode) return;
+                if (e.deltaY > 0) {
+                    const currentMinZoom = this.map.getMinZoom();
+                    if (this.map.getZoom() <= currentMinZoom + 0.01) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }
+            }, { capture: true, passive: false });
+        }
+
         this.map.on('dragstart', () => {
             if (!this.isSelectionMode) return;
             if (this.weatherUpdateTimeout) {
