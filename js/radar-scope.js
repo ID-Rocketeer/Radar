@@ -92,6 +92,7 @@ var RadarScope = class RadarScope {
         this.crosshair = marker;
 
         this.map.on('dragstart', () => {
+            if (!this.isSelectionMode) return;
             if (this.weatherUpdateTimeout) {
                 clearTimeout(this.weatherUpdateTimeout);
                 this.weatherUpdateTimeout = null;
