@@ -91,13 +91,18 @@ var RadarScope = class RadarScope {
         marker.addTo(this.map);
         this.crosshair = marker;
 
-        const container = this.map.getContainer();
+        const container = this.map.getContainer ? this.map.getContainer() : null;
         if (container) {
             container.addEventListener('wheel', (e) => {
                 if (this.isSelectionMode) return;
                 if (e.deltaY > 0) {
                     const currentMinZoom = this.map.getMinZoom();
-                    if (this.map.getZoom() <= currentMinZoom + 0.01) {
+                    const zoomDelta = this.map.options.zoomDelta || 0.5;
+                    const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+                    const standardDeltaY = isFirefox ? 3 : 100;
+                    const estimatedZoomChange = Math.max(0.05, (e.deltaY / standardDeltaY) * zoomDelta);
+                    
+                    if (this.map.getZoom() - estimatedZoomChange <= currentMinZoom + 0.01) {
                         e.preventDefault();
                         e.stopPropagation();
                     }

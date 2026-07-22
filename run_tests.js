@@ -176,6 +176,7 @@ global.L = {
             getZoom() { return 10; },
             getMinZoom() { return 1; },
             setMinZoom() {},
+            getContainer() { return mockElement(); },
             getCenter() {
                 return {
                     lat: 30.19,
