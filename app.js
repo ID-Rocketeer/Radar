@@ -1477,26 +1477,17 @@ function selectAircraft(hex) {
 function ensureAircraftVisible(ac) {
     if (!map) return;
     
-    // Check if the aircraft is already within the visible map bounds
-    try {
-        if (map.getBounds().contains([ac.lat, ac.lon])) {
-            return; // Already visible, no zoom change needed
-        }
-    } catch (e) {
-        // Bounds not ready yet
+    const dist = ac.dist || calcDistance(HOME_LAT, HOME_LON, ac.lat, ac.lon);
+    if (!dist) return;
+
+    // Check if the aircraft is already within the visible circular bezel area
+    const displayedRange = getDisplayedRange();
+    if (dist <= displayedRange) {
+        return; // Already visible inside the circular area, no zoom change needed
     }
 
-    // Calculate symmetric bounding box around home coordinates that includes the aircraft
-    const dLat = Math.abs(ac.lat - HOME_LAT);
-    const dLon = Math.abs(ac.lon - HOME_LON);
-    const padding = 1.15; // 15% margin to prevent marker clipping at screen edges
-    const bounds = L.latLngBounds(
-        [HOME_LAT - dLat * padding, HOME_LON - dLon * padding],
-        [HOME_LAT + dLat * padding, HOME_LON + dLon * padding]
-    );
-
-    // Get the maximum zoom level where this bounding box fits in the viewport
-    const targetZoom = map.getBoundsZoom(bounds);
+    // Get the target zoom level where a circle of radius dist * 1.15 fits in the bezel
+    const targetZoom = getZoomForRange(dist * 1.15);
     
     // If the map is currently zoomed in past this target level, zoom out to make it visible
     if (map.getZoom() > targetZoom) {

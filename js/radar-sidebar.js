@@ -8,6 +8,19 @@ var RadarSidebar = class RadarSidebar {
         this.detailsContainer = detailsContainerId ? document.getElementById(detailsContainerId) : null;
         this.countElement = countId ? document.getElementById(countId) : null;
         this.domRowMap = {};
+        this.currentAc = null;
+        this.onHexClickCallback = null;
+
+        if (typeof document !== 'undefined') {
+            const headerEl = document.querySelector('.telemetry-panel .panel-title');
+            if (headerEl) {
+                headerEl.addEventListener('click', () => {
+                    if (this.currentAc && this.onHexClickCallback) {
+                        this.onHexClickCallback(this.currentAc);
+                    }
+                });
+            }
+        }
     }
 
     updateCount(count) {
@@ -114,7 +127,7 @@ var RadarSidebar = class RadarSidebar {
         this.detailsContainer.innerHTML = `
             <div class="tel-row">
                 <span class="tel-label">HEX ADDR:</span>
-                <span class="tel-val hex-tracker-toggle" id="hex-toggle-${ac.hex}" style="cursor: pointer; user-select: none; font-weight: bold; ${isTracked ? 'color: #d4ff00; text-shadow: 0 0 6px rgba(212, 255, 0, 0.6);' : ''}">${ac.hex.toUpperCase()}</span>
+                <span class="tel-val hex-tracker-toggle" id="hex-toggle-${ac.hex}" style="font-weight: bold; ${isTracked ? 'color: #d4ff00; text-shadow: 0 0 6px rgba(212, 255, 0, 0.6);' : ''}">${ac.hex.toUpperCase()}</span>
             </div>
             <div class="tel-row">
                 <span class="tel-label">CALLSIGN:</span>
@@ -160,16 +173,13 @@ var RadarSidebar = class RadarSidebar {
             </div>
         `;
 
-        // Attach click event listener for the hex tracker toggle
-        const toggleBtn = document.getElementById(`hex-toggle-${ac.hex}`);
-        if (toggleBtn && onHexClickCallback) {
-            toggleBtn.addEventListener('click', () => {
-                onHexClickCallback(ac);
-            });
-        }
+        this.currentAc = ac;
+        this.onHexClickCallback = onHexClickCallback;
     }
 
     resetDetails() {
+        this.currentAc = null;
+        this.onHexClickCallback = null;
         if (this.detailsContainer) {
             this.detailsContainer.innerHTML = `<div class="empty-telemetry">NO TARGET ACQUIRED. SELECT A TARGET FROM THE RADAR SCREEN OR LIST PANEL.</div>`;
         }

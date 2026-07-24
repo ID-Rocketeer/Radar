@@ -545,6 +545,8 @@ body {
 .tel-val {
     font-weight: bold;
     color: var(--phosphor-green);
+    user-select: text !important;
+    -webkit-user-select: text !important;
 }
 
 .tel-val.alert {
