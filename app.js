@@ -542,9 +542,14 @@ function initMap() {
 function initControls() {
     initAddressSearchControls();
 
-    // Prevent long-press context menus across the entire application (bezel, sidebar, map, etc.)
-    // We use the capturing phase (true) to intercept the event before Leaflet blocks propagation.
-    window.addEventListener('contextmenu', (e) => e.preventDefault(), true);
+    // Prevent long-press context menus across the application (bezel, scope map, background)
+    // while allowing native context/copy menus on selectable text (telemetry log, modals)
+    window.addEventListener('contextmenu', (e) => {
+        if (e.target && e.target.closest && (e.target.closest('.tel-val') || e.target.closest('.modal-content'))) {
+            return; // Allow native context menu / copy callout
+        }
+        e.preventDefault();
+    }, true);
 
     // Audio soundtrack toggle button
     const soundBtn = document.getElementById('sound-btn');
