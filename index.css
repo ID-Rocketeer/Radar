@@ -519,6 +519,10 @@ body {
     flex: none; /* Do not grow, do not shrink, act as a static block */
     display: block; /* Remove flex container layout */
 }
+.telemetry-panel .panel-title.tracked-header {
+    color: #d4ff00 !important;
+    text-shadow: 0 0 6px rgba(212, 255, 0, 0.6) !important;
+}
 
 /* Telemetry display logs */
 .telemetry-display {

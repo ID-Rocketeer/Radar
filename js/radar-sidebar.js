@@ -127,7 +127,7 @@ var RadarSidebar = class RadarSidebar {
         this.detailsContainer.innerHTML = `
             <div class="tel-row">
                 <span class="tel-label">HEX ADDR:</span>
-                <span class="tel-val hex-tracker-toggle" id="hex-toggle-${ac.hex}" style="font-weight: bold; ${isTracked ? 'color: #d4ff00; text-shadow: 0 0 6px rgba(212, 255, 0, 0.6);' : ''}">${ac.hex.toUpperCase()}</span>
+                <span class="tel-val hex-tracker-toggle" id="hex-toggle-${ac.hex}" style="font-weight: bold;">${ac.hex.toUpperCase()}</span>
             </div>
             <div class="tel-row">
                 <span class="tel-label">CALLSIGN:</span>
@@ -175,11 +175,28 @@ var RadarSidebar = class RadarSidebar {
 
         this.currentAc = ac;
         this.onHexClickCallback = onHexClickCallback;
+
+        if (typeof document !== 'undefined') {
+            const headerEl = document.querySelector('.telemetry-panel .panel-title');
+            if (headerEl) {
+                if (isTracked) {
+                    headerEl.classList.add('tracked-header');
+                } else {
+                    headerEl.classList.remove('tracked-header');
+                }
+            }
+        }
     }
 
     resetDetails() {
         this.currentAc = null;
         this.onHexClickCallback = null;
+        if (typeof document !== 'undefined') {
+            const headerEl = document.querySelector('.telemetry-panel .panel-title');
+            if (headerEl) {
+                headerEl.classList.remove('tracked-header');
+            }
+        }
         if (this.detailsContainer) {
             this.detailsContainer.innerHTML = `<div class="empty-telemetry">NO TARGET ACQUIRED. SELECT A TARGET FROM THE RADAR SCREEN OR LIST PANEL.</div>`;
         }
