@@ -551,6 +551,7 @@ body {
     color: var(--phosphor-green);
     user-select: text !important;
     -webkit-user-select: text !important;
+    -webkit-touch-callout: default !important;
 }
 
 .tel-val.alert {
@@ -2921,6 +2922,7 @@ body {
 .modal-content * {
     user-select: text !important;
     -webkit-user-select: text !important;
+    -webkit-touch-callout: default !important;
 }
 
 /* Location Search Panel & Staging Controls */
